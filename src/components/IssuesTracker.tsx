@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Clock, CheckCircle, Plus, Search } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Plus, Search, Calendar, User } from "lucide-react";
 
 interface Project {
   id: number;
@@ -37,13 +37,15 @@ interface Issue {
   dateCreated: string;
   dateResolved?: string;
   department: string;
+  eta?: string;
+  elaborateDescription?: string;
 }
 
 interface IssuesTrackerProps {
   projects: Project[];
 }
 
-// Mock issues data
+// Mock issues data with additional fields
 const mockIssues: Issue[] = [
   {
     id: 1,
@@ -51,11 +53,13 @@ const mockIssues: Issue[] = [
     projectName: "API Integration Platform",
     title: "Database connection timeout",
     description: "Intermittent connection timeouts causing API failures during peak hours",
+    elaborateDescription: "We are experiencing intermittent database connection timeouts specifically during peak traffic hours (9 AM - 11 AM and 2 PM - 4 PM). This is causing cascading failures in our API endpoints, resulting in 504 Gateway Timeout errors for approximately 15% of requests during these periods. The issue appears to be related to connection pool exhaustion and may require optimization of our database connection management strategy. We have identified that the current connection pool size of 20 may be insufficient for our current load patterns. Additionally, some long-running queries are not being properly terminated, leading to connection leaks.",
     severity: "high",
     status: "open",
     assignee: "Michael Chen",
     dateCreated: "2024-06-25",
-    department: "Engineering"
+    department: "Engineering",
+    eta: "2024-06-28"
   },
   {
     id: 2,
@@ -63,11 +67,13 @@ const mockIssues: Issue[] = [
     projectName: "API Integration Platform", 
     title: "Third-party API rate limiting",
     description: "External service rate limits blocking batch operations",
+    elaborateDescription: "Our integration with the third-party payment processing API is being throttled due to rate limiting. The external service allows only 100 requests per minute, but our batch processing jobs require up to 500 requests during peak operations. This is causing significant delays in payment processing and order fulfillment. We need to implement a queue-based system with exponential backoff to respect the rate limits while maintaining system performance. The current implementation does not handle rate limit responses gracefully and simply fails the entire batch operation.",
     severity: "medium",
     status: "in-progress",
     assignee: "Sarah Johnson",
     dateCreated: "2024-06-24",
-    department: "Engineering"
+    department: "Engineering",
+    eta: "2024-06-30"
   },
   {
     id: 3,
@@ -75,11 +81,13 @@ const mockIssues: Issue[] = [
     projectName: "Customer Analytics Dashboard",
     title: "Data pipeline failing",
     description: "ETL process failing due to schema changes in source system",
+    elaborateDescription: "The data pipeline responsible for customer analytics has been failing since the upstream CRM system updated their database schema on June 20th. The new schema includes additional fields and has changed the data types for several existing columns, breaking our ETL mappings. This is preventing the analytics dashboard from receiving updated customer data, making the reports stale and unreliable. We need to update our data transformation logic to accommodate the new schema and implement better schema validation to prevent future failures. The issue affects all customer segmentation reports and revenue analytics.",
     severity: "critical",
     status: "open",
     assignee: "Emily Rodriguez",
     dateCreated: "2024-06-23",
-    department: "Data"
+    department: "Data",
+    eta: "2024-06-27"
   },
   {
     id: 4,
@@ -87,11 +95,13 @@ const mockIssues: Issue[] = [
     projectName: "Customer Analytics Dashboard",
     title: "Performance issues with large datasets",
     description: "Dashboard loading times exceed 30 seconds for enterprise customers",
+    elaborateDescription: "Enterprise customers with large datasets (>1M records) are experiencing unacceptable dashboard loading times of 30-45 seconds. The current implementation loads all data client-side and performs filtering and aggregation in the browser, which is not scalable. We need to implement server-side pagination, pre-computed aggregations, and data virtualization to improve performance. The issue is particularly severe for customers in the retail and e-commerce sectors who have high transaction volumes. This is impacting customer satisfaction and retention rates.",
     severity: "high",
     status: "open",
     assignee: "David Park",
     dateCreated: "2024-06-22",
-    department: "Data"
+    department: "Data",
+    eta: "2024-07-05"
   },
   {
     id: 5,
@@ -99,11 +109,13 @@ const mockIssues: Issue[] = [
     projectName: "Customer Analytics Dashboard",
     title: "Missing user permissions module",
     description: "Role-based access control not implemented for sensitive data",
+    elaborateDescription: "The customer analytics dashboard currently lacks proper role-based access control, allowing all users to view sensitive customer data regardless of their authorization level. This poses a significant security and compliance risk, especially for handling PII and financial data. We need to implement a comprehensive permissions system that restricts access to sensitive data based on user roles and departments. The system should support granular permissions at the field level and maintain audit logs for compliance purposes. This is blocking our SOC 2 certification process.",
     severity: "medium",
     status: "in-progress",
     assignee: "Emily Rodriguez",
     dateCreated: "2024-06-21",
-    department: "Data"
+    department: "Data",
+    eta: "2024-07-01"
   },
   {
     id: 6,
@@ -111,11 +123,13 @@ const mockIssues: Issue[] = [
     projectName: "Marketing Automation Tool",
     title: "Email template rendering issues",
     description: "Templates not displaying correctly in certain email clients",
+    elaborateDescription: "Email templates generated by our marketing automation tool are not rendering correctly in Outlook 2016/2019 and some versions of Apple Mail. The issue is caused by CSS compatibility problems and the use of modern HTML features that are not supported by older email clients. Approximately 30% of our recipients use these problematic clients, resulting in broken layouts and poor user experience. We need to refactor the email templates to use more conservative HTML/CSS that is compatible with legacy email clients while maintaining visual appeal. This issue is affecting campaign effectiveness and brand perception.",
     severity: "medium",
     status: "open",
     assignee: "Jessica Wu",
     dateCreated: "2024-06-20",
-    department: "Marketing"
+    department: "Marketing",
+    eta: "2024-06-29"
   }
 ];
 
@@ -138,6 +152,8 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
   const [filterProject, setFilterProject] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
+  const [isDetailSidebarOpen, setIsDetailSidebarOpen] = useState(false);
 
   const filteredIssues = issues.filter(issue => {
     const matchesStatus = filterStatus === "all" || issue.status === filterStatus;
@@ -168,6 +184,11 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
     if (issue.severity === "critical") acc[issue.department].critical += 1;
     return acc;
   }, {} as Record<string, any>);
+
+  const handleIssueClick = (issue: Issue) => {
+    setSelectedIssue(issue);
+    setIsDetailSidebarOpen(true);
+  };
 
   return (
     <div className="space-y-6">
@@ -372,7 +393,11 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                 const statusStyle = statusConfig[issue.status];
                 
                 return (
-                  <div key={issue.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                  <div 
+                    key={issue.id} 
+                    className="p-4 border rounded-lg hover:shadow-md transition-shadow cursor-pointer hover:bg-slate-50"
+                    onClick={() => handleIssueClick(issue)}
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
@@ -402,6 +427,95 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Issue Detail Sidebar */}
+      <Sheet open={isDetailSidebarOpen} onOpenChange={setIsDetailSidebarOpen}>
+        <SheetContent className="w-[400px] sm:w-[540px]">
+          <SheetHeader>
+            <SheetTitle>Issue Details</SheetTitle>
+          </SheetHeader>
+          
+          {selectedIssue && (
+            <div className="space-y-6 mt-6">
+              {/* Issue Title and Status */}
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                  {selectedIssue.title}
+                </h3>
+                <div className="flex items-center gap-2 mb-4">
+                  <Badge 
+                    className={`text-xs ${severityConfig[selectedIssue.severity].textColor} ${severityConfig[selectedIssue.severity].bgColor}`}
+                  >
+                    {severityConfig[selectedIssue.severity].label}
+                  </Badge>
+                  <Badge 
+                    variant="outline"
+                    className={`text-xs ${statusConfig[selectedIssue.status].textColor}`}
+                  >
+                    {statusConfig[selectedIssue.status].label}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Project Info */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-slate-700 mb-2">Project</h4>
+                <p className="text-sm text-slate-600">{selectedIssue.projectName}</p>
+              </div>
+
+              {/* Elaborate Description */}
+              <div className="border-t pt-4">
+                <h4 className="font-medium text-slate-700 mb-2">Detailed Description</h4>
+                <p className="text-sm text-slate-600 leading-relaxed">
+                  {selectedIssue.elaborateDescription || selectedIssue.description}
+                </p>
+              </div>
+
+              {/* Timestamp */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-slate-500" />
+                  <h4 className="font-medium text-slate-700">Timeline</h4>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Created:</span>
+                    <span className="text-slate-600">
+                      {new Date(selectedIssue.dateCreated).toLocaleString()}
+                    </span>
+                  </div>
+                  {selectedIssue.eta && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">ETA:</span>
+                      <span className="text-slate-600">
+                        {new Date(selectedIssue.eta).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
+                  {selectedIssue.dateResolved && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Resolved:</span>
+                      <span className="text-slate-600">
+                        {new Date(selectedIssue.dateResolved).toLocaleString()}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Assignee */}
+              <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-slate-500" />
+                  <h4 className="font-medium text-slate-700">Assignee</h4>
+                </div>
+                <p className="text-sm text-slate-600">{selectedIssue.assignee}</p>
+                <p className="text-xs text-slate-500 mt-1">{selectedIssue.department} Department</p>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
