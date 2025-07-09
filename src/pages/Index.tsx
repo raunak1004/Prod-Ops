@@ -26,7 +26,16 @@ const projects = [
     blockers: 0,
     teamSize: 6,
     hoursAllocated: 480,
-    hoursUsed: 380
+    hoursUsed: 380,
+    lastCallDate: "2024-07-08",
+    pmStatus: "green" as const,
+    opsStatus: "green" as const,
+    healthTrend: "improving" as const,
+    monthlyDeliverables: [
+      { id: 1, task: "UI/UX Design Completion", dueDate: "2024-07-15", comments: "Final review in progress" },
+      { id: 2, task: "Backend API Integration", dueDate: "2024-07-20", comments: "On track" },
+      { id: 3, task: "Testing Phase", dueDate: "2024-07-25", comments: "Waiting for development completion" }
+    ]
   },
   {
     id: 2,
@@ -41,7 +50,16 @@ const projects = [
     blockers: 2,
     teamSize: 4,
     hoursAllocated: 600,
-    hoursUsed: 520
+    hoursUsed: 520,
+    lastCallDate: "2024-07-05",
+    pmStatus: "amber" as const,
+    opsStatus: "red" as const,
+    healthTrend: "declining" as const,
+    monthlyDeliverables: [
+      { id: 1, task: "Database Schema Migration", dueDate: "2024-07-12", comments: "Delayed due to complexity" },
+      { id: 2, task: "Third-party API Testing", dueDate: "2024-07-18", comments: "Dependencies blocking progress" },
+      { id: 3, task: "Security Audit", dueDate: "2024-07-22", comments: "Scheduled for next week" }
+    ]
   },
   {
     id: 3,
@@ -56,7 +74,16 @@ const projects = [
     blockers: 4,
     teamSize: 5,
     hoursAllocated: 400,
-    hoursUsed: 350
+    hoursUsed: 350,
+    lastCallDate: "2024-07-07",
+    pmStatus: "red" as const,
+    opsStatus: "red" as const,
+    healthTrend: "constant" as const,
+    monthlyDeliverables: [
+      { id: 1, task: "Data Pipeline Setup", dueDate: "2024-07-14", comments: "Major technical challenges" },
+      { id: 2, task: "Report Generation Module", dueDate: "2024-07-21", comments: "Waiting for data pipeline" },
+      { id: 3, task: "User Interface Development", dueDate: "2024-07-28", comments: "Resource constraints" }
+    ]
   },
   {
     id: 4,
@@ -71,7 +98,16 @@ const projects = [
     blockers: 0,
     teamSize: 3,
     hoursAllocated: 320,
-    hoursUsed: 280
+    hoursUsed: 280,
+    lastCallDate: "2024-07-06",
+    pmStatus: "green" as const,
+    opsStatus: "green" as const,
+    healthTrend: "improving" as const,
+    monthlyDeliverables: [
+      { id: 1, task: "Security Policy Updates", dueDate: "2024-07-16", comments: "Nearly complete" },
+      { id: 2, task: "Vulnerability Assessment", dueDate: "2024-07-19", comments: "Scheduled for this week" },
+      { id: 3, task: "Compliance Documentation", dueDate: "2024-07-24", comments: "Ready for review" }
+    ]
   },
   {
     id: 5,
@@ -86,7 +122,16 @@ const projects = [
     blockers: 1,
     teamSize: 4,
     hoursAllocated: 360,
-    hoursUsed: 280
+    hoursUsed: 280,
+    lastCallDate: "2024-07-04",
+    pmStatus: "green" as const,
+    opsStatus: "amber" as const,
+    healthTrend: "constant" as const,
+    monthlyDeliverables: [
+      { id: 1, task: "Email Campaign Builder", dueDate: "2024-07-17", comments: "Feature complete, testing needed" },
+      { id: 2, task: "Analytics Dashboard", dueDate: "2024-07-23", comments: "UI development in progress" },
+      { id: 3, task: "Integration Testing", dueDate: "2024-07-26", comments: "Planned after feature completion" }
+    ]
   }
 ];
 

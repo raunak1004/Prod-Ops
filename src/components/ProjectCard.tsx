@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Users, AlertTriangle, Clock } from "lucide-react";
+import { Calendar, Users, AlertTriangle, Clock, Phone } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Project {
   id: number;
@@ -20,6 +21,15 @@ interface Project {
   teamSize: number;
   hoursAllocated: number;
   hoursUsed: number;
+  lastCallDate: string;
+  pmStatus: "green" | "amber" | "red";
+  opsStatus: "green" | "amber" | "red";
+  monthlyDeliverables: Array<{
+    id: number;
+    task: string;
+    dueDate: string;
+    comments: string;
+  }>;
 }
 
 interface ProjectCardProps {
@@ -52,11 +62,20 @@ const statusConfig = {
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
   const config = statusConfig[project.status];
+  const pmConfig = statusConfig[project.pmStatus];
+  const opsConfig = statusConfig[project.opsStatus];
   const initials = project.lead.split(' ').map(n => n[0]).join('');
-  const daysToDeadline = Math.ceil((new Date(project.dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  const navigate = useNavigate();
+  
+  const handleCardClick = () => {
+    navigate(`/project/${project.id}`);
+  };
   
   return (
-    <Card className={`hover:shadow-lg transition-all duration-300 ${config.borderColor} border-l-4`}>
+    <Card 
+      className={`hover:shadow-lg transition-all duration-300 ${config.borderColor} border-l-4 cursor-pointer`}
+      onClick={handleCardClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
@@ -73,61 +92,43 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {/* Progress */}
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-slate-600">Progress</span>
-            <span className="text-sm font-medium">{project.progress}%</span>
-          </div>
-          <Progress value={project.progress} className="h-2" />
-        </div>
-
-        {/* Key metrics grid */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1 text-xs text-slate-500">
-              <Calendar className="w-3 h-3" />
-              Due Date
-            </div>
-            <div className="text-sm font-medium">
-              {new Date(project.dueDate).toLocaleDateString()}
-            </div>
-            <div className={`text-xs ${daysToDeadline < 0 ? 'text-red-600' : daysToDeadline <= 7 ? 'text-amber-600' : 'text-green-600'}`}>
-              {daysToDeadline < 0 ? `${Math.abs(daysToDeadline)} days overdue` : `${daysToDeadline} days left`}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex items-center gap-1 text-xs text-slate-500">
-              <Users className="w-3 h-3" />
-              Team Size
-            </div>
-            <div className="text-sm font-medium">{project.teamSize} members</div>
+        {/* Last Call Date */}
+        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-md">
+          <Phone className="w-4 h-4 text-slate-500" />
+          <div className="flex-1">
+            <div className="text-sm font-medium text-slate-700">Last Call</div>
             <div className="text-xs text-slate-500">
-              {Math.round(project.hoursUsed / project.teamSize)}h avg
+              {new Date(project.lastCallDate).toLocaleDateString()}
             </div>
           </div>
         </div>
 
-        {/* Deliverables */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-slate-600">
-            Deliverables: {project.completedDeliverables}/{project.deliverables}
+        {/* PM Status vs Ops Status */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium text-slate-700">PM Status</div>
+              <div className={`px-2 py-1 rounded-full ${pmConfig.bgColor} ${pmConfig.textColor}`}>
+                <div className="flex items-center gap-1">
+                  <div className={`w-2 h-2 rounded-full ${pmConfig.color}`}></div>
+                  <span className="text-xs font-medium">{pmConfig.label}</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="text-xs text-slate-500">
-            {Math.round((project.completedDeliverables / project.deliverables) * 100)}% complete
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-medium text-slate-700">Ops Status</div>
+              <div className={`px-2 py-1 rounded-full ${opsConfig.bgColor} ${opsConfig.textColor}`}>
+                <div className="flex items-center gap-1">
+                  <div className={`w-2 h-2 rounded-full ${opsConfig.color}`}></div>
+                  <span className="text-xs font-medium">{opsConfig.label}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Blockers */}
-        {project.blockers > 0 && (
-          <div className="flex items-center gap-2 p-2 bg-red-50 rounded-md">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <span className="text-sm text-red-700">
-              {project.blockers} active blocker{project.blockers > 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
 
         {/* Project Lead */}
         <div className="flex items-center gap-2 pt-2 border-t">
@@ -138,14 +139,15 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project }) => {
           <div className="ml-auto text-xs text-slate-500">Lead</div>
         </div>
 
-        {/* Hours utilization */}
-        <div className="flex items-center justify-between text-xs text-slate-500">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {project.hoursUsed}h / {project.hoursAllocated}h
+        {/* Quick metrics */}
+        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+          <div className="text-center">
+            <div className="text-lg font-semibold text-slate-900">{project.progress}%</div>
+            <div className="text-xs text-slate-500">Progress</div>
           </div>
-          <div className={`font-medium ${project.hoursUsed > project.hoursAllocated ? 'text-red-600' : 'text-green-600'}`}>
-            {Math.round((project.hoursUsed / project.hoursAllocated) * 100)}%
+          <div className="text-center">
+            <div className="text-lg font-semibold text-slate-900">{project.completedDeliverables}/{project.deliverables}</div>
+            <div className="text-xs text-slate-500">Deliverables</div>
           </div>
         </div>
       </CardContent>
