@@ -220,8 +220,8 @@ const Index = () => {
           <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
-            <TabsTrigger value="resources">Resources</TabsTrigger>
-            <TabsTrigger value="issues">Issues</TabsTrigger>
+            <TabsTrigger value="resources">Resource</TabsTrigger>
+            <TabsTrigger value="escalation">Escalation</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -277,7 +277,7 @@ const Index = () => {
             <ResourceOverview projects={projects} />
           </TabsContent>
 
-          <TabsContent value="issues" className="space-y-6">
+          <TabsContent value="escalation" className="space-y-6">
             <IssuesTracker projects={projects} />
           </TabsContent>
         </Tabs>
