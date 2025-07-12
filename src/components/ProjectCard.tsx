@@ -36,6 +36,8 @@ interface Project {
 interface ProjectCardProps {
   project: Project;
   onStatusUpdate?: (projectId: number, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => void;
+  onClick?: () => void;
+  isSelected?: boolean;
 }
 
 const statusConfig = {
@@ -69,20 +71,25 @@ const statusConfig = {
   }
 };
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdate }) => {
+export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdate, onClick, isSelected }) => {
   const config = statusConfig[project.status];
   const pmConfig = statusConfig[project.pmStatus];
   const opsConfig = statusConfig[project.opsStatus];
   const initials = project.lead.split(' ').map(n => n[0]).join('');
   const navigate = useNavigate();
   
-  const handleCardClick = () => {
-    navigate(`/project/${project.id}`);
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onClick) {
+      onClick();
+    } else {
+      navigate(`/project/${project.id}`);
+    }
   };
   
   return (
     <Card 
-      className={`hover:shadow-lg transition-all duration-300 ${config.borderColor} border-l-4 cursor-pointer`}
+      className={`hover:shadow-lg transition-all duration-300 ${config.borderColor} border-l-4 cursor-pointer ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}
       onClick={handleCardClick}
     >
       <CardHeader className="pb-3">
