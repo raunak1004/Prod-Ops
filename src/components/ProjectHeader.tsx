@@ -69,9 +69,49 @@ const trendConfig = {
 
 export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate }) => {
   const [newWeekStatus, setNewWeekStatus] = useState<'red' | 'amber' | 'green' | 'not-started'>('green');
+  
+  // Calculate health trend based on weekly status changes
+  const calculateHealthTrend = (): 'improving' | 'declining' | 'constant' => {
+    const sortedWeeks = project.pastWeeksStatus.sort((a, b) => {
+      const weekNumA = parseInt(a.week.split('-')[1]);
+      const weekNumB = parseInt(b.week.split('-')[1]);
+      return weekNumB - weekNumA; // Most recent first
+    });
+
+    if (sortedWeeks.length < 2) return 'constant';
+
+    const lastTwoWeeks = sortedWeeks.slice(0, 2);
+    const lastWeek = lastTwoWeeks[0];
+    const previousWeek = lastTwoWeeks[1];
+
+    // If last two weeks are amber or red, show declining
+    if (lastTwoWeeks.every(week => week.status === 'amber' || week.status === 'red')) {
+      return 'declining';
+    }
+
+    // If status improved from red to amber/green, or from amber to green, show improving
+    if (
+      (previousWeek.status === 'red' && (lastWeek.status === 'amber' || lastWeek.status === 'green')) ||
+      (previousWeek.status === 'amber' && lastWeek.status === 'green')
+    ) {
+      return 'improving';
+    }
+
+    // If status worsened, show declining
+    if (
+      (previousWeek.status === 'green' && (lastWeek.status === 'amber' || lastWeek.status === 'red')) ||
+      (previousWeek.status === 'amber' && lastWeek.status === 'red')
+    ) {
+      return 'declining';
+    }
+
+    return 'constant';
+  };
+
   const pmConfig = statusConfig[project.pmStatus];
   const opsConfig = statusConfig[project.opsStatus];
-  const trendData = trendConfig[project.healthTrend];
+  const calculatedTrend = calculateHealthTrend();
+  const trendData = trendConfig[calculatedTrend];
   const TrendIcon = trendData.icon;
 
   return (
