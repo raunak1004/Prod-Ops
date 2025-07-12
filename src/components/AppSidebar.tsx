@@ -38,9 +38,9 @@ export function AppSidebar() {
         {/* Company Logo Section */}
         <div className="p-4">
           <img 
-            src="/lovable-uploads/879143aa-ce79-4855-b44f-d4ceec691dd6.png" 
+            src="/lovable-uploads/10c57d8d-b201-4254-b1bc-9fbb0c27e564.png" 
             alt="Foxsense Innovations" 
-            className={state === "collapsed" ? "h-8 w-8 object-contain mx-auto" : "w-full h-12 object-contain"}
+            className={state === "collapsed" ? "h-8 w-8 object-contain mx-auto" : "w-full h-auto max-h-12 object-contain"}
           />
         </div>
         
