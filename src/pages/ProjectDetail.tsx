@@ -231,8 +231,7 @@ const ProjectDetail: React.FC = () => {
   };
 
   const handleBackNavigation = () => {
-    const previousSection = location.state?.from || '/';
-    navigate(previousSection);
+    navigate('/?tab=projects');
   };
 
   const handleStatusUpdate = (statusType: 'pmStatus' | 'opsStatus', newStatus: string) => {
