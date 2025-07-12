@@ -9,160 +9,7 @@ import { MonthlyDeliverables } from '@/components/MonthlyDeliverables';
 import { ExecutiveSummary } from '@/components/ExecutiveSummary';
 import { ResourceOverview } from '@/components/ResourceOverview';
 import { IssuesTracker } from '@/components/IssuesTracker';
-
-// Mock data - in a real app, this would come from an API
-const mockProjects = [
-  {
-    id: 1,
-    name: "Mobile App Redesign",
-    status: "green" as const,
-    progress: 85,
-    dueDate: "2024-07-15",
-    department: "Product",
-    lead: "Sarah Johnson",
-    deliverables: 8,
-    completedDeliverables: 7,
-    blockers: 0,
-    teamSize: 6,
-    hoursAllocated: 480,
-    hoursUsed: 380,
-    lastCallDate: "2024-07-08",
-    pmStatus: "green" as const,
-    opsStatus: "green" as const,
-    healthTrend: "improving" as const,
-    monthlyDeliverables: [
-      { id: 1, task: "UI/UX Design Completion", dueDate: "2024-07-15", comments: "Final review in progress", description: "Complete the final UI/UX design review", type: "new-feature", assignee: "John Doe", department: "Design", status: "green" as const },
-      { id: 2, task: "Backend API Integration", dueDate: "2024-07-20", comments: "On track", description: "Integrate backend APIs with frontend", type: "feature-request", assignee: "Jane Smith", department: "Development", status: "green" as const },
-      { id: 3, task: "Testing Phase", dueDate: "2024-07-25", comments: "Waiting for development completion", description: "Comprehensive testing of all features", type: "adhoc", assignee: "Mike Johnson", department: "QA", status: "amber" as const }
-    ],
-    pastWeeksStatus: [
-      { week: "Week-1", status: "green" as const },
-      { week: "Week-2", status: "green" as const },
-      { week: "Week-3", status: "amber" as const },
-      { week: "Week-4", status: "green" as const }
-    ]
-  },
-  {
-    id: 2,
-    name: "API Integration Platform",
-    status: "amber" as const,
-    progress: 70,
-    dueDate: "2024-07-10",
-    department: "Engineering",
-    lead: "Michael Chen",
-    deliverables: 12,
-    completedDeliverables: 8,
-    blockers: 2,
-    teamSize: 4,
-    hoursAllocated: 600,
-    hoursUsed: 520,
-    lastCallDate: "2024-07-05",
-    pmStatus: "amber" as const,
-    opsStatus: "red" as const,
-    healthTrend: "declining" as const,
-    monthlyDeliverables: [
-      { id: 1, task: "Database Schema Migration", dueDate: "2024-07-12", comments: "Delayed due to complexity", description: "Migrate database schema to new version", type: "bug", assignee: "Alex Chen", department: "Development", status: "red" as const },
-      { id: 2, task: "Third-party API Testing", dueDate: "2024-07-18", comments: "Dependencies blocking progress", description: "Test integration with third-party APIs", type: "feature-request", assignee: "Sarah Wilson", department: "QA", status: "amber" as const },
-      { id: 3, task: "Security Audit", dueDate: "2024-07-22", comments: "Scheduled for next week", description: "Comprehensive security audit", type: "adhoc", assignee: "David Kim", department: "PM", status: "green" as const }
-    ],
-    pastWeeksStatus: [
-      { week: "Week-1", status: "amber" as const },
-      { week: "Week-2", status: "red" as const },
-      { week: "Week-3", status: "red" as const },
-      { week: "Week-4", status: "amber" as const }
-    ]
-  },
-  {
-    id: 3,
-    name: "Customer Analytics Dashboard",
-    status: "red" as const,
-    progress: 45,
-    dueDate: "2024-06-30",
-    department: "Data",
-    lead: "Emily Rodriguez",
-    deliverables: 10,
-    completedDeliverables: 4,
-    blockers: 4,
-    teamSize: 5,
-    hoursAllocated: 400,
-    hoursUsed: 350,
-    lastCallDate: "2024-07-07",
-    pmStatus: "red" as const,
-    opsStatus: "red" as const,
-    healthTrend: "constant" as const,
-    monthlyDeliverables: [
-      { id: 1, task: "Data Pipeline Setup", dueDate: "2024-07-14", comments: "Major technical challenges", description: "Set up data pipeline infrastructure", type: "new-feature", assignee: "Emily Rodriguez", department: "Development", status: "red" as const },
-      { id: 2, task: "Report Generation Module", dueDate: "2024-07-21", comments: "Waiting for data pipeline", description: "Develop report generation functionality", type: "feature-request", assignee: "Tom Brown", department: "Development", status: "red" as const },
-      { id: 3, task: "User Interface Development", dueDate: "2024-07-28", comments: "Resource constraints", description: "Build user interface components", type: "new-feature", assignee: "Lisa Chen", department: "Design", status: "amber" as const }
-    ],
-    pastWeeksStatus: [
-      { week: "Week-1", status: "red" as const },
-      { week: "Week-2", status: "red" as const },
-      { week: "Week-3", status: "red" as const },
-      { week: "Week-4", status: "red" as const }
-    ]
-  },
-  {
-    id: 4,
-    name: "Security Compliance Update",
-    status: "green" as const,
-    progress: 90,
-    dueDate: "2024-07-20",
-    department: "Security",
-    lead: "David Park",
-    deliverables: 6,
-    completedDeliverables: 5,
-    blockers: 0,
-    teamSize: 3,
-    hoursAllocated: 320,
-    hoursUsed: 280,
-    lastCallDate: "2024-07-06",
-    pmStatus: "green" as const,
-    opsStatus: "green" as const,
-    healthTrend: "improving" as const,
-    monthlyDeliverables: [
-      { id: 1, task: "Security Policy Updates", dueDate: "2024-07-16", comments: "Nearly complete", description: "Update security policies and procedures", type: "adhoc", assignee: "David Park", department: "PM", status: "green" as const },
-      { id: 2, task: "Vulnerability Assessment", dueDate: "2024-07-19", comments: "Scheduled for this week", description: "Conduct vulnerability assessment", type: "adhoc", assignee: "Security Team", department: "QA", status: "green" as const },
-      { id: 3, task: "Compliance Documentation", dueDate: "2024-07-24", comments: "Ready for review", description: "Prepare compliance documentation", type: "feature-request", assignee: "Compliance Team", department: "PM", status: "green" as const }
-    ],
-    pastWeeksStatus: [
-      { week: "Week-1", status: "green" as const },
-      { week: "Week-2", status: "green" as const },
-      { week: "Week-3", status: "green" as const },
-      { week: "Week-4", status: "green" as const }
-    ]
-  },
-  {
-    id: 5,
-    name: "Marketing Automation Tool",
-    status: "amber" as const,
-    progress: 65,
-    dueDate: "2024-07-12",
-    department: "Marketing",
-    lead: "Jessica Wu",
-    deliverables: 9,
-    completedDeliverables: 6,
-    blockers: 1,
-    teamSize: 4,
-    hoursAllocated: 360,
-    hoursUsed: 280,
-    lastCallDate: "2024-07-04",
-    pmStatus: "green" as const,
-    opsStatus: "amber" as const,
-    healthTrend: "constant" as const,
-    monthlyDeliverables: [
-      { id: 1, task: "Email Campaign Builder", dueDate: "2024-07-17", comments: "Feature complete, testing needed", description: "Build email campaign creation tool", type: "new-feature", assignee: "Jessica Wu", department: "Development", status: "amber" as const },
-      { id: 2, task: "Analytics Dashboard", dueDate: "2024-07-23", comments: "UI development in progress", description: "Create analytics dashboard", type: "feature-request", assignee: "Marketing Team", department: "Design", status: "amber" as const },
-      { id: 3, task: "Integration Testing", dueDate: "2024-07-26", comments: "Planned after feature completion", description: "Test system integrations", type: "adhoc", assignee: "QA Team", department: "QA", status: "green" as const }
-    ],
-    pastWeeksStatus: [
-      { week: "Week-1", status: "green" as const },
-      { week: "Week-2", status: "amber" as const },
-      { week: "Week-3", status: "amber" as const },
-      { week: "Week-4", status: "amber" as const }
-    ]
-  }
-];
+import { projectsAndProducts, getProjectById, type Project } from '@/data/projectsData';
 
 // Navigation tabs configuration
 const getNavigationTabs = (projectData: any) => [
@@ -195,8 +42,8 @@ const ProjectDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState('project');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
-  const [currentProject, setCurrentProject] = useState<any>(() => 
-    mockProjects.find(p => p.id === parseInt(id || '0'))
+  const [currentProject, setCurrentProject] = useState<Project | null>(() => 
+    getProjectById(parseInt(id || '0')) || null
   );
   
   const project = currentProject;
@@ -284,8 +131,8 @@ const ProjectDetail: React.FC = () => {
     if (!project) return;
     setCurrentProject({
       ...project,
-      lastCallDate: date
-    } as any);
+      lastCallDate: date.toISOString().split('T')[0]
+    });
   };
   
   if (!project) {
@@ -348,7 +195,10 @@ const ProjectDetail: React.FC = () => {
         {/* Project Header */}
         <div className="px-6 py-4">
         <ProjectHeader 
-          project={project} 
+          project={{
+            ...project,
+            lastCallDate: new Date(project.lastCallDate)
+          }} 
           onStatusUpdate={handleStatusUpdate}
           onWeeklyStatusAdd={handleWeeklyStatusAdd}
           onWeeklyStatusUpdate={handleWeeklyStatusUpdate}
