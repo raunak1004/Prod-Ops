@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2, ChevronLeft, ChevronRight, Save, Edit, FileText, Download } from 'lucide-react';
+import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2, ChevronLeft, ChevronRight, Save, Edit, FileText, Download, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { projectsAndProducts } from "@/data/projectsData";
@@ -260,6 +260,23 @@ export const ResourceAllocation = () => {
     });
   }, [projectsAndProducts]);
 
+  // Pagination state for projects
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 3;
+  const totalPages = Math.ceil(syncedProjects.length / itemsPerPage);
+  const currentProjects = syncedProjects.slice(
+    currentPage * itemsPerPage,
+    (currentPage + 1) * itemsPerPage
+  );
+
+  const handlePrevPage = () => {
+    setCurrentPage(prev => Math.max(0, prev - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(prev => Math.min(totalPages - 1, prev + 1));
+  };
+
   return (
     <TooltipProvider>
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -278,9 +295,40 @@ export const ResourceAllocation = () => {
 
         <div className="flex gap-6 h-[calc(100vh-280px)]">
           {/* Projects Grid */}
-          <div className={`transition-all duration-300 overflow-y-auto ${isEmployeeListOpen ? 'flex-1' : 'w-full'}`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
-              {syncedProjects.map((project) => {
+          <div className={`transition-all duration-300 ${isEmployeeListOpen ? 'flex-1' : 'w-full'}`}>
+            {/* Pagination Controls */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrevPage}
+                  disabled={currentPage === 0}
+                  className="h-8 w-8 p-0"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleNextPage}
+                  disabled={currentPage === totalPages - 1}
+                  className="h-8 w-8 p-0"
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Showing {itemsPerPage} of {syncedProjects.length} projects
+              </div>
+            </div>
+            
+            {/* Projects Grid - Fixed 3 items */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1 min-h-[400px]">
+              {currentProjects.map((project) => {
                 const status = getProjectStatus(project.id.toString());
                 const isReadOnly = status.isFinalized && !status.isEditing;
                 
