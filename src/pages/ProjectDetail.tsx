@@ -5,16 +5,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Calendar, User, Clock, Plus, CalendarIcon } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Calendar, User, Clock, Plus, CalendarIcon, Eye } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import * as z from "zod";
 
 // Mock data - in a real app, this would come from an API
 const mockProjects = [
@@ -37,9 +40,15 @@ const mockProjects = [
     opsStatus: "green" as const,
     healthTrend: "improving" as const,
     monthlyDeliverables: [
-      { id: 1, task: "UI/UX Design Completion", dueDate: "2024-07-15", comments: "Final review in progress" },
-      { id: 2, task: "Backend API Integration", dueDate: "2024-07-20", comments: "On track" },
-      { id: 3, task: "Testing Phase", dueDate: "2024-07-25", comments: "Waiting for development completion" }
+      { id: 1, task: "UI/UX Design Completion", dueDate: "2024-07-15", comments: "Final review in progress", description: "Complete the final UI/UX design review", type: "new-feature", assignee: "John Doe" },
+      { id: 2, task: "Backend API Integration", dueDate: "2024-07-20", comments: "On track", description: "Integrate backend APIs with frontend", type: "feature-request", assignee: "Jane Smith" },
+      { id: 3, task: "Testing Phase", dueDate: "2024-07-25", comments: "Waiting for development completion", description: "Comprehensive testing of all features", type: "adhoc", assignee: "Mike Johnson" }
+    ],
+    pastWeeksStatus: [
+      { week: "Week 1", status: "green" },
+      { week: "Week 2", status: "green" },
+      { week: "Week 3", status: "amber" },
+      { week: "Week 4", status: "green" }
     ]
   },
   {
@@ -61,9 +70,15 @@ const mockProjects = [
     opsStatus: "red" as const,
     healthTrend: "declining" as const,
     monthlyDeliverables: [
-      { id: 1, task: "Database Schema Migration", dueDate: "2024-07-12", comments: "Delayed due to complexity" },
-      { id: 2, task: "Third-party API Testing", dueDate: "2024-07-18", comments: "Dependencies blocking progress" },
-      { id: 3, task: "Security Audit", dueDate: "2024-07-22", comments: "Scheduled for next week" }
+      { id: 1, task: "Database Schema Migration", dueDate: "2024-07-12", comments: "Delayed due to complexity", description: "Migrate database schema to new version", type: "bug", assignee: "Alex Chen" },
+      { id: 2, task: "Third-party API Testing", dueDate: "2024-07-18", comments: "Dependencies blocking progress", description: "Test integration with third-party APIs", type: "feature-request", assignee: "Sarah Wilson" },
+      { id: 3, task: "Security Audit", dueDate: "2024-07-22", comments: "Scheduled for next week", description: "Comprehensive security audit", type: "adhoc", assignee: "David Kim" }
+    ],
+    pastWeeksStatus: [
+      { week: "Week 1", status: "amber" },
+      { week: "Week 2", status: "red" },
+      { week: "Week 3", status: "red" },
+      { week: "Week 4", status: "amber" }
     ]
   },
   {
@@ -85,9 +100,15 @@ const mockProjects = [
     opsStatus: "red" as const,
     healthTrend: "constant" as const,
     monthlyDeliverables: [
-      { id: 1, task: "Data Pipeline Setup", dueDate: "2024-07-14", comments: "Major technical challenges" },
-      { id: 2, task: "Report Generation Module", dueDate: "2024-07-21", comments: "Waiting for data pipeline" },
-      { id: 3, task: "User Interface Development", dueDate: "2024-07-28", comments: "Resource constraints" }
+      { id: 1, task: "Data Pipeline Setup", dueDate: "2024-07-14", comments: "Major technical challenges", description: "Set up data pipeline infrastructure", type: "new-feature", assignee: "Emily Rodriguez" },
+      { id: 2, task: "Report Generation Module", dueDate: "2024-07-21", comments: "Waiting for data pipeline", description: "Develop report generation functionality", type: "feature-request", assignee: "Tom Brown" },
+      { id: 3, task: "User Interface Development", dueDate: "2024-07-28", comments: "Resource constraints", description: "Build user interface components", type: "new-feature", assignee: "Lisa Chen" }
+    ],
+    pastWeeksStatus: [
+      { week: "Week 1", status: "red" },
+      { week: "Week 2", status: "red" },
+      { week: "Week 3", status: "red" },
+      { week: "Week 4", status: "red" }
     ]
   },
   {
@@ -109,9 +130,15 @@ const mockProjects = [
     opsStatus: "green" as const,
     healthTrend: "improving" as const,
     monthlyDeliverables: [
-      { id: 1, task: "Security Policy Updates", dueDate: "2024-07-16", comments: "Nearly complete" },
-      { id: 2, task: "Vulnerability Assessment", dueDate: "2024-07-19", comments: "Scheduled for this week" },
-      { id: 3, task: "Compliance Documentation", dueDate: "2024-07-24", comments: "Ready for review" }
+      { id: 1, task: "Security Policy Updates", dueDate: "2024-07-16", comments: "Nearly complete", description: "Update security policies and procedures", type: "adhoc", assignee: "David Park" },
+      { id: 2, task: "Vulnerability Assessment", dueDate: "2024-07-19", comments: "Scheduled for this week", description: "Conduct vulnerability assessment", type: "adhoc", assignee: "Security Team" },
+      { id: 3, task: "Compliance Documentation", dueDate: "2024-07-24", comments: "Ready for review", description: "Prepare compliance documentation", type: "feature-request", assignee: "Compliance Team" }
+    ],
+    pastWeeksStatus: [
+      { week: "Week 1", status: "green" },
+      { week: "Week 2", status: "green" },
+      { week: "Week 3", status: "green" },
+      { week: "Week 4", status: "green" }
     ]
   },
   {
@@ -133,9 +160,15 @@ const mockProjects = [
     opsStatus: "amber" as const,
     healthTrend: "constant" as const,
     monthlyDeliverables: [
-      { id: 1, task: "Email Campaign Builder", dueDate: "2024-07-17", comments: "Feature complete, testing needed" },
-      { id: 2, task: "Analytics Dashboard", dueDate: "2024-07-23", comments: "UI development in progress" },
-      { id: 3, task: "Integration Testing", dueDate: "2024-07-26", comments: "Planned after feature completion" }
+      { id: 1, task: "Email Campaign Builder", dueDate: "2024-07-17", comments: "Feature complete, testing needed", description: "Build email campaign creation tool", type: "new-feature", assignee: "Jessica Wu" },
+      { id: 2, task: "Analytics Dashboard", dueDate: "2024-07-23", comments: "UI development in progress", description: "Create analytics dashboard", type: "feature-request", assignee: "Marketing Team" },
+      { id: 3, task: "Integration Testing", dueDate: "2024-07-26", comments: "Planned after feature completion", description: "Test system integrations", type: "adhoc", assignee: "QA Team" }
+    ],
+    pastWeeksStatus: [
+      { week: "Week 1", status: "green" },
+      { week: "Week 2", status: "amber" },
+      { week: "Week 3", status: "amber" },
+      { week: "Week 4", status: "amber" }
     ]
   }
 ];
@@ -182,29 +215,70 @@ const trendConfig = {
   }
 };
 
+// Form validation schema
+const taskFormSchema = z.object({
+  task: z.string().min(1, "Task is required"),
+  description: z.string().min(1, "Description is required"),
+  type: z.string().min(1, "Type is required"),
+  assignee: z.string().min(1, "Assignee is required"),
+  dueDate: z.date({
+    required_error: "Due date is required"
+  }),
+  comments: z.string().optional()
+});
+
+type TaskFormData = z.infer<typeof taskFormSchema>;
+
 const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+  const [projectData, setProjectData] = useState(() => 
+    mockProjects.find(p => p.id === parseInt(id || '0'))
+  );
   
-  const form = useForm({
+  const form = useForm<TaskFormData>({
+    resolver: zodResolver(taskFormSchema),
     defaultValues: {
       task: "",
       description: "",
       type: "",
       assignee: "",
-      dueDate: undefined as Date | undefined,
+      dueDate: undefined,
       comments: ""
     }
   });
   
-  const project = mockProjects.find(p => p.id === parseInt(id || '0'));
+  const project = projectData;
 
-  const onSubmit = (data: any) => {
-    console.log("New task:", data);
-    // Here you would normally add the task to the project's deliverables
+  const onSubmit = (data: TaskFormData) => {
+    if (!project) return;
+    
+    const newTask = {
+      id: project.monthlyDeliverables.length + 1,
+      task: data.task,
+      dueDate: format(data.dueDate, "yyyy-MM-dd"),
+      comments: data.comments || "",
+      description: data.description,
+      type: data.type,
+      assignee: data.assignee
+    };
+    
+    const updatedProject = {
+      ...project,
+      monthlyDeliverables: [...project.monthlyDeliverables, newTask]
+    };
+    
+    setProjectData(updatedProject);
     setIsDialogOpen(false);
     form.reset();
+  };
+
+  const handleTaskClick = (task: any) => {
+    setSelectedTask(task);
+    setIsTaskDetailOpen(true);
   };
   
   if (!project) {
@@ -293,6 +367,25 @@ const ProjectDetail: React.FC = () => {
                   <div className={`w-2 h-2 rounded-full ${opsConfig.color}`}></div>
                   <span className="text-sm font-medium">{opsConfig.label}</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Past Weeks Status */}
+            <div className="mt-6 space-y-3">
+              <div className="text-sm font-medium text-slate-700">Past 4 Weeks Status</div>
+              <div className="flex items-center gap-3">
+                {project.pastWeeksStatus.map((week, index) => (
+                  <div key={index} className="flex flex-col items-center gap-1">
+                    <div 
+                      className={`w-3 h-3 rounded-full border-2 border-dashed ${
+                        week.status === 'green' ? 'bg-green-500 border-green-300' :
+                        week.status === 'amber' ? 'bg-amber-500 border-amber-300' :
+                        'bg-red-500 border-red-300'
+                      }`}
+                    ></div>
+                    <span className="text-xs text-slate-500">{week.week}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -464,8 +557,17 @@ const ProjectDetail: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                   {project.monthlyDeliverables.map((deliverable) => (
-                    <TableRow key={deliverable.id}>
-                      <TableCell className="font-medium">{deliverable.task}</TableCell>
+                    <TableRow 
+                      key={deliverable.id} 
+                      className="cursor-pointer hover:bg-slate-100"
+                      onClick={() => handleTaskClick(deliverable)}
+                    >
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          {deliverable.task}
+                          <Eye className="w-3 h-3 text-slate-400" />
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-slate-500" />
@@ -491,6 +593,61 @@ const ProjectDetail: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Task Detail Side Sheet */}
+        <Sheet open={isTaskDetailOpen} onOpenChange={setIsTaskDetailOpen}>
+          <SheetContent className="w-[400px] sm:w-[540px]">
+            <SheetHeader>
+              <SheetTitle>Task Details</SheetTitle>
+            </SheetHeader>
+            {selectedTask && (
+              <div className="mt-6 space-y-6">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Task</label>
+                  <p className="mt-1 text-sm text-slate-900">{selectedTask.task}</p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Description</label>
+                  <p className="mt-1 text-sm text-slate-900">{selectedTask.description}</p>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Type</label>
+                  <Badge variant="outline" className="mt-1">
+                    {selectedTask.type === 'feature-request' ? 'Feature Request' :
+                     selectedTask.type === 'new-feature' ? 'New Feature' :
+                     selectedTask.type === 'adhoc' ? 'Adhoc' :
+                     selectedTask.type === 'bug' ? 'Bug' : selectedTask.type}
+                  </Badge>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Assignee</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <User className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-900">{selectedTask.assignee}</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Due Date</label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-slate-500" />
+                    <span className="text-sm text-slate-900">
+                      {new Date(selectedTask.dueDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Comments</label>
+                  <p className="mt-1 text-sm text-slate-900">{selectedTask.comments || "No comments"}</p>
+                </div>
+              </div>
+            )}
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   );
