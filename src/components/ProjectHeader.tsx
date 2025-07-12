@@ -193,26 +193,6 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusU
               );
             })}
           </div>
-
-          {/* Past 4 Weeks Status (Display) */}
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-slate-700">Past 4 Weeks Status</div>
-            <div className="flex items-center gap-3">
-              {project.pastWeeksStatus.slice(-4).map((week, index) => (
-                <div key={index} className="flex flex-col items-center gap-1">
-                  <div 
-                    className={`w-3 h-3 rounded-full border-2 border-dashed ${
-                      week.status === 'green' ? 'bg-green-500 border-green-300' :
-                      week.status === 'amber' ? 'bg-amber-500 border-amber-300' :
-                      week.status === 'red' ? 'bg-red-500 border-red-300' :
-                      'bg-slate-500 border-slate-300'
-                    }`}
-                  ></div>
-                  <span className="text-xs text-slate-500">{week.week}</span>
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
