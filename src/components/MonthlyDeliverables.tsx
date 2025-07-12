@@ -64,10 +64,10 @@ export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
-    status: '',
-    type: '',
+    status: 'all',
+    type: 'all',
     assignee: '',
-    department: ''
+    department: 'all'
   });
 
   const months = [
@@ -82,10 +82,10 @@ export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
   });
 
   const filteredTasks = currentMonthTasks.filter(task => {
-    return (!filters.status || task.status === filters.status) &&
-           (!filters.type || task.type === filters.type) &&
+    return (filters.status === 'all' || task.status === filters.status) &&
+           (filters.type === 'all' || task.type === filters.type) &&
            (!filters.assignee || task.assignee.toLowerCase().includes(filters.assignee.toLowerCase())) &&
-           (!filters.department || task.department === filters.department);
+           (filters.department === 'all' || task.department === filters.department);
   });
 
   const navigateMonth = (direction: 'prev' | 'next') => {

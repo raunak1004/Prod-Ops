@@ -24,10 +24,12 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({ filters, onFiltersChan
   };
 
   const clearFilters = () => {
-    onFiltersChange({ status: '', type: '', assignee: '', department: '' });
+    onFiltersChange({ status: 'all', type: 'all', assignee: '', department: 'all' });
   };
 
-  const hasActiveFilters = Object.values(filters).some(value => value !== '');
+  const hasActiveFilters = Object.entries(filters).some(([key, value]) => 
+    key === 'assignee' ? value !== '' : value !== 'all'
+  );
 
   return (
     <Card className="mb-4">
@@ -57,7 +59,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({ filters, onFiltersChan
                 <SelectValue placeholder="All statuses" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All statuses</SelectItem>
+                <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="green">On Track</SelectItem>
                 <SelectItem value="amber">At Risk</SelectItem>
                 <SelectItem value="red">Delayed</SelectItem>
@@ -74,7 +76,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({ filters, onFiltersChan
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All types</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
                 <SelectItem value="feature-request">Feature Request</SelectItem>
                 <SelectItem value="new-feature">New Feature</SelectItem>
                 <SelectItem value="adhoc">Adhoc</SelectItem>
@@ -92,7 +94,7 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({ filters, onFiltersChan
                 <SelectValue placeholder="All departments" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All departments</SelectItem>
+                <SelectItem value="all">All departments</SelectItem>
                 <SelectItem value="Design">Design</SelectItem>
                 <SelectItem value="Development">Development</SelectItem>
                 <SelectItem value="QA">QA</SelectItem>
