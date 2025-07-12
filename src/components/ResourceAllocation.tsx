@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2 } from 'lucide-react';
+import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2, ChevronLeft, ChevronRight, Save, Edit } from 'lucide-react';
 import { projectsAndProducts } from "@/data/projectsData";
 
 interface Employee {
@@ -22,6 +23,13 @@ interface AllocatedEmployee extends Employee {
 
 interface ProjectAllocation {
   [projectId: string]: AllocatedEmployee[];
+}
+
+interface ProjectStatus {
+  [projectId: string]: {
+    isFinalized: boolean;
+    isEditing: boolean;
+  };
 }
 
 // Mock employees data
@@ -53,6 +61,8 @@ const allocationOptions = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 export const ResourceAllocation = () => {
   const [employees] = useState<Employee[]>(mockEmployees);
   const [projectAllocations, setProjectAllocations] = useState<ProjectAllocation>({});
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>({});
+  const [isEmployeeListOpen, setIsEmployeeListOpen] = useState(false);
 
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
@@ -103,179 +113,280 @@ export const ResourceAllocation = () => {
     }));
   };
 
+  const finalizeProjectAllocation = (projectId: string) => {
+    setProjectStatus(prev => ({
+      ...prev,
+      [projectId]: { isFinalized: true, isEditing: false }
+    }));
+  };
+
+  const editProjectAllocation = (projectId: string) => {
+    setProjectStatus(prev => ({
+      ...prev,
+      [projectId]: { ...prev[projectId], isEditing: true }
+    }));
+  };
+
+  const saveProjectAllocation = (projectId: string) => {
+    setProjectStatus(prev => ({
+      ...prev,
+      [projectId]: { isFinalized: true, isEditing: false }
+    }));
+  };
+
+  const getProjectStatus = (projectId: string) => {
+    return projectStatus[projectId] || { isFinalized: false, isEditing: false };
+  };
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="space-y-6">
+      <div className="relative">
         <div className="flex gap-6 h-[calc(100vh-200px)]">
-          {/* Employee List Sidebar */}
-          <div className="w-72 bg-card rounded-lg border overflow-hidden">
-            <div className="p-3 border-b bg-muted/50">
-              <h3 className="font-semibold text-base">Available Employees</h3>
-              <p className="text-xs text-muted-foreground">Drag to assign to projects</p>
-            </div>
-            
-            <Droppable droppableId="employees" isDropDisabled={true}>
-              {(provided) => (
-                <div
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
-                  className="p-2 space-y-2 overflow-y-auto max-h-full"
-                >
-                  {employees.map((employee, index) => {
-                    const IconComponent = getDepartmentIcon(employee.department);
-                    
-                    return (
-                      <Draggable key={employee.id} draggableId={employee.id} index={index}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className={`p-2 bg-background border rounded-md cursor-grab active:cursor-grabbing transition-all ${
-                              snapshot.isDragging ? 'shadow-lg scale-105 rotate-2' : 'hover:shadow-md'
-                            }`}
-                          >
+          {/* Projects Grid */}
+          <div className={`transition-all duration-300 overflow-y-auto ${isEmployeeListOpen ? 'flex-1' : 'w-full'}`}>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
+              {projectsAndProducts.map((project) => {
+                const status = getProjectStatus(project.id.toString());
+                const isReadOnly = status.isFinalized && !status.isEditing;
+                
+                return (
+                  <Droppable 
+                    key={project.id} 
+                    droppableId={`project-${project.id}`}
+                    isDropDisabled={isReadOnly}
+                  >
+                    {(provided, snapshot) => (
+                      <Card 
+                        className={`transition-all ${
+                          snapshot.isDraggingOver ? 'ring-2 ring-primary ring-offset-2 bg-primary/5' : ''
+                        } ${isReadOnly ? 'bg-muted/30' : ''}`}
+                      >
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <CardTitle className="text-base">{project.name}</CardTitle>
+                              <p className="text-sm text-muted-foreground mt-1">{project.type}</p>
+                            </div>
                             <div className="flex items-center gap-2">
-                              <Avatar className="h-8 w-8 shrink-0">
-                                <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                  {getInitials(employee.name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 mb-1">
-                                  <h4 className="font-medium text-xs truncate">{employee.name}</h4>
-                                  <IconComponent className="h-3 w-3 text-muted-foreground shrink-0" />
-                                </div>
-                                <p className="text-xs text-muted-foreground truncate">{employee.role}</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {employee.skills.slice(0, 2).map((skill) => (
-                                    <Badge key={skill} variant="secondary" className="text-xs px-1 py-0 h-4">
-                                      {skill}
-                                    </Badge>
-                                  ))}
-                                  {employee.skills.length > 2 && (
-                                    <Badge variant="outline" className="text-xs px-1 py-0 h-4">
-                                      +{employee.skills.length - 2}
-                                    </Badge>
-                                  )}
+                              <Badge 
+                                variant={project.status === 'green' ? 'default' : 'secondary'}
+                                className="shrink-0"
+                              >
+                                {project.status}
+                              </Badge>
+                              {status.isFinalized && (
+                                <Badge variant="outline" className="text-xs">
+                                  Finalized
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="mt-3">
+                            <p className="text-xs font-medium text-muted-foreground mb-2">
+                              Team Size: {project.teamSize} • Progress: {project.progress}%
+                            </p>
+                          </div>
+
+                          {/* Action Buttons */}
+                          {projectAllocations[project.id]?.length > 0 && (
+                            <div className="flex gap-2 mt-2">
+                              {!status.isFinalized ? (
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => finalizeProjectAllocation(project.id.toString())}
+                                  className="text-xs h-7"
+                                >
+                                  <Save className="h-3 w-3 mr-1" />
+                                  Finalize
+                                </Button>
+                              ) : !status.isEditing ? (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => editProjectAllocation(project.id.toString())}
+                                  className="text-xs h-7"
+                                >
+                                  <Edit className="h-3 w-3 mr-1" />
+                                  Edit
+                                </Button>
+                              ) : (
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => saveProjectAllocation(project.id.toString())}
+                                  className="text-xs h-7"
+                                >
+                                  <Save className="h-3 w-3 mr-1" />
+                                  Save
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                        </CardHeader>
+                        
+                        <CardContent
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`min-h-[120px] ${
+                            snapshot.isDraggingOver ? 'bg-primary/5' : ''
+                          }`}
+                        >
+                          {projectAllocations[project.id]?.length > 0 ? (
+                            <div className="space-y-2">
+                              {projectAllocations[project.id].map((employee) => {
+                                const IconComponent = getDepartmentIcon(employee.department);
+                                
+                                return (
+                                  <div key={employee.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+                                    <Avatar className="h-7 w-7 shrink-0">
+                                      <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                        {getInitials(employee.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1">
+                                        <p className="font-medium text-xs truncate">{employee.name}</p>
+                                        <IconComponent className="h-3 w-3 text-muted-foreground shrink-0" />
+                                      </div>
+                                      <p className="text-xs text-muted-foreground truncate">{employee.role}</p>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <Select
+                                        value={employee.allocation.toString()}
+                                        onValueChange={(value) => updateAllocation(project.id.toString(), employee.id, parseInt(value))}
+                                        disabled={isReadOnly}
+                                      >
+                                        <SelectTrigger className="w-16 h-6 text-xs">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="end" className="min-w-[80px]">
+                                          {allocationOptions.map((option) => (
+                                            <SelectItem key={option} value={option.toString()} className="text-xs">
+                                              {option}%
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                      
+                                      {!isReadOnly && (
+                                        <button
+                                          onClick={() => removeEmployeeFromProject(project.id.toString(), employee.id)}
+                                          className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
+                                        >
+                                          <Trash2 className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-center min-h-[100px]">
+                              <div className="text-muted-foreground">
+                                <p className="text-xs font-medium">
+                                  {isReadOnly ? 'No employees allocated' : 'Drop employees here'}
+                                </p>
+                                {!isReadOnly && <p className="text-xs">Drag from sidebar to assign</p>}
+                              </div>
+                            </div>
+                          )}
+                          {provided.placeholder}
+                        </CardContent>
+                      </Card>
+                    )}
+                  </Droppable>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Employee List Sidebar - Right Side */}
+          {isEmployeeListOpen && (
+            <div className="w-72 bg-card rounded-lg border overflow-hidden">
+              <div className="p-3 border-b bg-muted/50">
+                <h3 className="font-semibold text-base">Available Employees</h3>
+                <p className="text-xs text-muted-foreground">Drag to assign to projects</p>
+              </div>
+              
+              <Droppable droppableId="employees" isDropDisabled={true}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className="p-2 space-y-2 overflow-y-auto max-h-full"
+                  >
+                    {employees.map((employee, index) => {
+                      const IconComponent = getDepartmentIcon(employee.department);
+                      
+                      return (
+                        <Draggable key={employee.id} draggableId={employee.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`p-2 bg-background border rounded-md cursor-grab active:cursor-grabbing transition-all ${
+                                snapshot.isDragging ? 'shadow-lg scale-105 rotate-2' : 'hover:shadow-md'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-8 w-8 shrink-0">
+                                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                                    {getInitials(employee.name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 mb-1">
+                                    <h4 className="font-medium text-xs truncate">{employee.name}</h4>
+                                    <IconComponent className="h-3 w-3 text-muted-foreground shrink-0" />
+                                  </div>
+                                  <p className="text-xs text-muted-foreground truncate">{employee.role}</p>
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {employee.skills.slice(0, 2).map((skill) => (
+                                      <Badge key={skill} variant="secondary" className="text-xs px-1 py-0 h-4">
+                                        {skill}
+                                      </Badge>
+                                    ))}
+                                    {employee.skills.length > 2 && (
+                                      <Badge variant="outline" className="text-xs px-1 py-0 h-4">
+                                        +{employee.skills.length - 2}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    );
-                  })}
-                  {provided.placeholder}
-                </div>
-              )}
-            </Droppable>
-          </div>
-
-          {/* Projects Grid */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
-              {projectsAndProducts.map((project) => (
-                <Droppable key={project.id} droppableId={`project-${project.id}`}>
-                  {(provided, snapshot) => (
-                    <Card 
-                      className={`transition-all ${
-                        snapshot.isDraggingOver ? 'ring-2 ring-primary ring-offset-2 bg-primary/5' : ''
-                      }`}
-                    >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <CardTitle className="text-base">{project.name}</CardTitle>
-                            <p className="text-sm text-muted-foreground mt-1">{project.type}</p>
-                          </div>
-                          <Badge 
-                            variant={project.status === 'green' ? 'default' : 'secondary'}
-                            className="shrink-0"
-                          >
-                            {project.status}
-                          </Badge>
-                        </div>
-                        
-                        <div className="mt-3">
-                          <p className="text-xs font-medium text-muted-foreground mb-2">Team Size: {project.teamSize} • Progress: {project.progress}%</p>
-                        </div>
-                      </CardHeader>
-                      
-                      <CardContent
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`min-h-[120px] ${
-                          snapshot.isDraggingOver ? 'bg-primary/5' : ''
-                        }`}
-                      >
-                        {projectAllocations[project.id]?.length > 0 ? (
-                          <div className="space-y-2">
-                            {projectAllocations[project.id].map((employee) => {
-                              const IconComponent = getDepartmentIcon(employee.department);
-                              
-                              return (
-                                <div key={employee.id} className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
-                                  <Avatar className="h-7 w-7 shrink-0">
-                                    <AvatarFallback className="bg-primary/10 text-primary text-xs">
-                                      {getInitials(employee.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1">
-                                      <p className="font-medium text-xs truncate">{employee.name}</p>
-                                      <IconComponent className="h-3 w-3 text-muted-foreground shrink-0" />
-                                    </div>
-                                    <p className="text-xs text-muted-foreground truncate">{employee.role}</p>
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <Select
-                                      value={employee.allocation.toString()}
-                                      onValueChange={(value) => updateAllocation(project.id.toString(), employee.id, parseInt(value))}
-                                    >
-                                      <SelectTrigger className="w-16 h-6 text-xs">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent align="end" className="min-w-[80px]">
-                                        {allocationOptions.map((option) => (
-                                          <SelectItem key={option} value={option.toString()} className="text-xs">
-                                            {option}%
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                    
-                                    <button
-                                      onClick={() => removeEmployeeFromProject(project.id.toString(), employee.id)}
-                                      className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-center min-h-[100px]">
-                            <div className="text-muted-foreground">
-                              <p className="text-xs font-medium">Drop employees here</p>
-                              <p className="text-xs">Drag from sidebar to assign</p>
-                            </div>
-                          </div>
-                        )}
-                        {provided.placeholder}
-                      </CardContent>
-                    </Card>
-                  )}
-                </Droppable>
-              ))}
+                          )}
+                        </Draggable>
+                      );
+                    })}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Toggle Button for Employee List */}
+        <Button
+          onClick={() => setIsEmployeeListOpen(!isEmployeeListOpen)}
+          className="fixed right-4 top-1/2 transform -translate-y-1/2 z-10 h-12 w-12 rounded-full shadow-lg"
+          size="icon"
+        >
+          {isEmployeeListOpen ? (
+            <ChevronRight className="h-5 w-5" />
+          ) : (
+            <>
+              <Users className="h-5 w-5" />
+              <ChevronLeft className="h-3 w-3 ml-1" />
+            </>
+          )}
+        </Button>
       </div>
     </DragDropContext>
   );
