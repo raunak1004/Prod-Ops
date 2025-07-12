@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Calendar, Users, AlertTriangle, TrendingUp, Clock, Filter } from "lucide-react";
+import { Calendar, Users, AlertTriangle, TrendingUp, Filter } from "lucide-react";
 import { ProjectCard } from "@/components/ProjectCard";
+import { TaskFilters } from "@/components/TaskFilters";
 import { ResourceOverview } from "@/components/ResourceOverview";
 import { IssuesTracker } from "@/components/IssuesTracker";
 import { ExecutiveSummary } from "@/components/ExecutiveSummary";
@@ -148,8 +149,10 @@ const statusLabels = {
 };
 
 const Index = () => {
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [filters, setFilters] = useState({ status: 'all', type: 'all', assignee: '', department: 'all' });
   const [projectsData, setProjectsData] = useState(projects);
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
 
   const handleStatusUpdate = (projectId: number, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => {
     setProjectsData(prevProjects => 
@@ -161,9 +164,12 @@ const Index = () => {
     );
   };
   
-  const filteredProjects = selectedFilter === "all" 
-    ? projectsData 
-    : projectsData.filter(project => project.status === selectedFilter);
+  // Filter projects based on filters
+  const filteredProjects = projectsData.filter(project => {
+    if (filters.status !== "all" && project.status !== filters.status) return false;
+    if (filters.assignee && !project.lead?.toLowerCase().includes(filters.assignee.toLowerCase())) return false;
+    return true;
+  });
 
   const greenCount = projectsData.filter(p => p.status === "green").length;
   const amberCount = projectsData.filter(p => p.status === "amber").length;
@@ -271,72 +277,47 @@ const Index = () => {
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[400px]">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="projects">Projects</TabsTrigger>
-            <TabsTrigger value="resources">Resource</TabsTrigger>
-            <TabsTrigger value="escalation">Escalation</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
+        {/* Main Content based on active tab */}
+        <div className="space-y-6">
+          {activeTab === "overview" && (
             <ExecutiveSummary projects={projectsData} />
-          </TabsContent>
+          )}
 
-          <TabsContent value="projects" className="space-y-6">
-            <div className="flex items-center gap-3">
-              <h3 className="text-lg font-semibold">Project Portfolio</h3>
-              <div className="flex gap-2">
-                <Button 
-                  variant={selectedFilter === "all" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setSelectedFilter("all")}
-                >
-                  All ({totalProjects})
-                </Button>
-                <Button 
-                  variant={selectedFilter === "green" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setSelectedFilter("green")}
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                >
-                  Green ({greenCount})
-                </Button>
-                <Button 
-                  variant={selectedFilter === "amber" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setSelectedFilter("amber")}
-                  className="bg-amber-500 hover:bg-amber-600 text-white"
-                >
-                  Amber ({amberCount})
-                </Button>
-                <Button 
-                  variant={selectedFilter === "red" ? "default" : "outline"} 
-                  size="sm"
-                  onClick={() => setSelectedFilter("red")}
-                  className="bg-red-500 hover:bg-red-600 text-white"
-                >
-                  Red ({redCount})
-                </Button>
+          {activeTab === "projects" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Projects Overview</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Track and manage all your active projects
+                  </p>
+                </div>
+                <TaskFilters 
+                  filters={filters}
+                  onFiltersChange={setFilters}
+                />
+              </div>
+              
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredProjects.map((project) => (
+                  <ProjectCard 
+                    key={project.id} 
+                    project={project} 
+                    onStatusUpdate={handleStatusUpdate}
+                  />
+                ))}
               </div>
             </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredProjects.map((project) => (
-                <ProjectCard key={project.id} project={project} onStatusUpdate={handleStatusUpdate} />
-              ))}
-            </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="resources" className="space-y-6">
+          {activeTab === "resources" && (
             <ResourceOverview projects={projectsData} />
-          </TabsContent>
+          )}
 
-          <TabsContent value="escalation" className="space-y-6">
+          {activeTab === "escalation" && (
             <IssuesTracker projects={projectsData} />
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
     </div>
   );
