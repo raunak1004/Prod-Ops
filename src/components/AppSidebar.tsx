@@ -1,4 +1,4 @@
-import { BarChart3, Users, AlertTriangle, Home, MapPin } from "lucide-react";
+import { BarChart3, Users, AlertTriangle, Home, MapPin, Building2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -12,10 +12,11 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 const items = [
   { title: "Overview", value: "overview", icon: Home },
-  { title: "Projects", value: "projects", icon: BarChart3 },
+  { title: "Projects and Products", value: "projects", icon: BarChart3 },
   { title: "Resources", value: "resources", icon: Users },
   { title: "Seat Allocation", value: "seats", icon: MapPin },
   { title: "Escalation", value: "escalation", icon: AlertTriangle },
@@ -34,7 +35,14 @@ export function AppSidebar() {
   return (
     <Sidebar className={state === "collapsed" ? "w-14" : "w-60"} collapsible="icon">
       <SidebarContent>
-        <SidebarGroup>
+        {/* Company Icon Section */}
+        <div className="p-4 flex justify-center">
+          <Building2 className="h-8 w-8 text-primary" />
+        </div>
+        
+        <Separator className="mx-4" />
+        
+        <SidebarGroup className="mt-4">
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
