@@ -401,8 +401,8 @@ export const ResourceAllocation = () => {
                                         <SelectTrigger className="w-16 h-6 text-xs">
                                           <SelectValue />
                                         </SelectTrigger>
-                                        <SelectContent align="end" className="min-w-[80px] max-h-24 overflow-y-auto">
-                                          {allocationOptions.slice(0, 3).map((option) => (
+                                        <SelectContent align="end" className="min-w-[80px] max-h-32 overflow-y-auto">
+                                          {allocationOptions.map((option) => (
                                             <SelectItem key={option} value={option.toString()} className="text-xs">
                                               {option}%
                                             </SelectItem>
