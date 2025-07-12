@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceOverview } from "@/components/ResourceOverview";
 import { EmployeesList } from "@/components/EmployeesList";
 import { ResourceUtilization } from "@/components/ResourceUtilization";
+import { ResourceAllocation } from "@/components/ResourceAllocation";
 import { projectsAndProducts } from "@/data/projectsData";
 
 const Resources = () => {
@@ -17,9 +18,10 @@ const Resources = () => {
         </div>
         
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="employees">Employees</TabsTrigger>
+            <TabsTrigger value="allocation">Allocation</TabsTrigger>
             <TabsTrigger value="utilization">Utilization</TabsTrigger>
           </TabsList>
           
@@ -29,6 +31,10 @@ const Resources = () => {
           
           <TabsContent value="employees" className="mt-6">
             <EmployeesList />
+          </TabsContent>
+          
+          <TabsContent value="allocation" className="mt-6">
+            <ResourceAllocation />
           </TabsContent>
           
           <TabsContent value="utilization" className="mt-6">
