@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2, ChevronLeft, ChevronRight, Save, Edit } from 'lucide-react';
+import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2, ChevronLeft, ChevronRight, Save, Edit, FileText, Download } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/hooks/use-toast";
 import { projectsAndProducts } from "@/data/projectsData";
 
 interface Employee {
@@ -60,6 +61,7 @@ const departmentIcons = {
 const allocationOptions = [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
 
 export const ResourceAllocation = () => {
+  const { toast } = useToast();
   const [employees] = useState<Employee[]>(mockEmployees);
   const [projectAllocations, setProjectAllocations] = useState<ProjectAllocation>({});
   const [projectStatus, setProjectStatus] = useState<ProjectStatus>({});
@@ -98,7 +100,33 @@ export const ResourceAllocation = () => {
     }
   };
 
+  // Calculate total allocation for an employee across all projects
+  const getEmployeeTotalAllocation = (employeeId: string) => {
+    let total = 0;
+    Object.values(projectAllocations).forEach(projectEmployees => {
+      const employee = projectEmployees.find(emp => emp.id === employeeId);
+      if (employee) {
+        total += employee.allocation;
+      }
+    });
+    return total;
+  };
+
   const updateAllocation = (projectId: string, employeeId: string, allocation: number) => {
+    // Check if this allocation would exceed 100% total
+    const currentTotal = getEmployeeTotalAllocation(employeeId);
+    const currentProjectAllocation = projectAllocations[projectId]?.find(emp => emp.id === employeeId)?.allocation || 0;
+    const newTotal = currentTotal - currentProjectAllocation + allocation;
+    
+    if (newTotal > 100) {
+      toast({
+        title: "Allocation Error",
+        description: `Employee cannot be allocated above 100% total. Current: ${currentTotal}%, Attempted: ${newTotal}%`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProjectAllocations(prev => ({
       ...prev,
       [projectId]: prev[projectId]?.map(emp => 
@@ -139,15 +167,120 @@ export const ResourceAllocation = () => {
     return projectStatus[projectId] || { isFinalized: false, isEditing: false };
   };
 
+  // Generate utilization report based on actual project deliverables
+  const generateUtilizationReport = () => {
+    const utilizationData = employees.map(employee => {
+      const totalAllocation = getEmployeeTotalAllocation(employee.id);
+      
+      // Get projects this employee is allocated to
+      const assignedProjects = Object.entries(projectAllocations)
+        .filter(([_, projectEmployees]) => 
+          projectEmployees.some(emp => emp.id === employee.id)
+        )
+        .map(([projectId, projectEmployees]) => {
+          const allocation = projectEmployees.find(emp => emp.id === employee.id)?.allocation || 0;
+          const project = projectsAndProducts.find(p => p.id.toString() === projectId);
+          
+          // Count deliverables assigned to this employee
+          const assignedDeliverables = project?.monthlyDeliverables?.filter(
+            deliverable => deliverable.assignee === employee.name
+          ).length || 0;
+          
+          return {
+            projectName: project?.name || 'Unknown Project',
+            allocation,
+            assignedDeliverables
+          };
+        });
+
+      return {
+        employee: employee.name,
+        department: employee.department,
+        role: employee.role,
+        totalAllocation,
+        utilizationStatus: totalAllocation > 90 ? 'Overworked' : 
+                          totalAllocation < 60 ? 'Underutilized' : 'Optimal',
+        assignedProjects
+      };
+    });
+
+    // Create CSV content
+    const csvHeaders = [
+      'Employee Name',
+      'Department', 
+      'Role',
+      'Total Allocation (%)',
+      'Utilization Status',
+      'Assigned Projects',
+      'Total Deliverables'
+    ];
+
+    const csvRows = utilizationData.map(data => [
+      data.employee,
+      data.department,
+      data.role,
+      data.totalAllocation,
+      data.utilizationStatus,
+      data.assignedProjects.map(p => p.projectName).join('; '),
+      data.assignedProjects.reduce((sum, p) => sum + p.assignedDeliverables, 0)
+    ]);
+
+    const csvContent = [
+      csvHeaders.join(','),
+      ...csvRows.map(row => row.join(','))
+    ].join('\n');
+
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `utilization-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: "Report Generated",
+      description: "Utilization report has been downloaded successfully.",
+    });
+  };
+
+  // Sync with actual project deliverables data
+  const syncedProjects = useMemo(() => {
+    return projectsAndProducts.map(project => {
+      // Get employees assigned to deliverables
+      const deliverableAssignees = project.monthlyDeliverables
+        ?.map(deliverable => deliverable.assignee)
+        .filter(Boolean) || [];
+      
+      return {
+        ...project,
+        deliverableAssignees: [...new Set(deliverableAssignees)] // Remove duplicates
+      };
+    });
+  }, [projectsAndProducts]);
+
   return (
     <TooltipProvider>
       <DragDropContext onDragEnd={handleDragEnd}>
       <div className="relative">
-        <div className="flex gap-6 h-[calc(100vh-200px)]">
+        {/* Header with Generate Report Button */}
+        <div className="mb-4 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold">Resource Allocation</h2>
+            <p className="text-sm text-muted-foreground">Allocate employees to projects and track utilization</p>
+          </div>
+          <Button onClick={generateUtilizationReport} className="gap-2">
+            <FileText className="h-4 w-4" />
+            Generate Report
+          </Button>
+        </div>
+
+        <div className="flex gap-6 h-[calc(100vh-280px)]">
           {/* Projects Grid */}
           <div className={`transition-all duration-300 overflow-y-auto ${isEmployeeListOpen ? 'flex-1' : 'w-full'}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
-              {projectsAndProducts.map((project) => {
+              {syncedProjects.map((project) => {
                 const status = getProjectStatus(project.id.toString());
                 const isReadOnly = status.isFinalized && !status.isEditing;
                 
@@ -188,6 +321,11 @@ export const ResourceAllocation = () => {
                             <p className="text-xs font-medium text-muted-foreground mb-2">
                               Team Size: {project.teamSize} • Progress: {project.progress}%
                             </p>
+                            {project.deliverableAssignees.length > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                Deliverable Assignees: {project.deliverableAssignees.join(', ')}
+                              </p>
+                            )}
                           </div>
 
                           {/* Action Buttons */}
