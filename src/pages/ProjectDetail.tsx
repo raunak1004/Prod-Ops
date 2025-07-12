@@ -261,6 +261,17 @@ const ProjectDetail: React.FC = () => {
       pastWeeksStatus: updatedWeeklyStatus
     } as any);
   };
+
+  const handleTaskStatusUpdate = (taskId: number, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed') => {
+    if (!project) return;
+    const updatedTasks = project.monthlyDeliverables.map(task => 
+      task.id === taskId ? { ...task, status: newStatus } : task
+    );
+    setCurrentProject({
+      ...project,
+      monthlyDeliverables: updatedTasks
+    } as any);
+  };
   
   if (!project) {
     return (
@@ -290,6 +301,7 @@ const ProjectDetail: React.FC = () => {
             tasks={project.monthlyDeliverables}
             onAddTask={handleAddTask}
             onTaskClick={handleTaskClick}
+            onTaskStatusUpdate={handleTaskStatusUpdate}
             selectedTask={selectedTask}
             isTaskDetailOpen={isTaskDetailOpen}
             setIsTaskDetailOpen={setIsTaskDetailOpen}
