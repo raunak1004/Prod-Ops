@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { User, Code, Palette, Bug, Target, Users, Settings, Server, Headphones, Trash2, ChevronLeft, ChevronRight, Save, Edit } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { projectsAndProducts } from "@/data/projectsData";
 
 interface Employee {
@@ -139,7 +140,8 @@ export const ResourceAllocation = () => {
   };
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <TooltipProvider>
+      <DragDropContext onDragEnd={handleDragEnd}>
       <div className="relative">
         <div className="flex gap-6 h-[calc(100vh-200px)]">
           {/* Projects Grid */}
@@ -373,21 +375,28 @@ export const ResourceAllocation = () => {
         </div>
 
         {/* Toggle Button for Employee List */}
-        <Button
-          onClick={() => setIsEmployeeListOpen(!isEmployeeListOpen)}
-          className="fixed right-4 top-1/2 transform -translate-y-1/2 z-10 h-12 w-12 rounded-full shadow-lg"
-          size="icon"
-        >
-          {isEmployeeListOpen ? (
-            <ChevronRight className="h-5 w-5" />
-          ) : (
-            <>
-              <Users className="h-5 w-5" />
-              <ChevronLeft className="h-3 w-3 ml-1" />
-            </>
-          )}
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              onClick={() => setIsEmployeeListOpen(!isEmployeeListOpen)}
+              className="fixed right-4 top-1/2 transform -translate-y-1/2 z-10 h-12 w-12 rounded-full shadow-lg"
+              size="icon"
+            >
+              {isEmployeeListOpen ? (
+                <ChevronRight className="h-5 w-5" />
+              ) : (
+                <div className="flex items-center justify-center">
+                  <Users className="h-5 w-5" />
+                </div>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            <p>Available Employees</p>
+          </TooltipContent>
+        </Tooltip>
       </div>
     </DragDropContext>
+    </TooltipProvider>
   );
 };
