@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, TrendingUp, TrendingDown, Minus, Plus } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { User, TrendingUp, TrendingDown, Minus, Plus, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: number;
@@ -14,6 +18,7 @@ interface Project {
   healthTrend: 'improving' | 'declining' | 'constant';
   pastWeeksStatus: Array<{ week: string; status: 'red' | 'amber' | 'green' | 'not-started' }>;
   monthlyDeliverables?: Array<{ assignee: string; [key: string]: any }>;
+  lastCallDate?: Date;
 }
 
 interface ProjectHeaderProps {
@@ -22,6 +27,7 @@ interface ProjectHeaderProps {
   onWeeklyStatusAdd?: (weekStatus: { week: string; status: 'red' | 'amber' | 'green' | 'not-started' }) => void;
   onWeeklyStatusUpdate?: (week: string, newStatus: 'red' | 'amber' | 'green' | 'not-started') => void;
   onLeadUpdate?: (newLead: string) => void;
+  onLastCallDateUpdate?: (date: Date) => void;
 }
 
 const statusConfig = {
@@ -69,7 +75,7 @@ const trendConfig = {
   }
 };
 
-export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate, onLeadUpdate }) => {
+export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate, onLeadUpdate, onLastCallDateUpdate }) => {
   const [newWeekStatus, setNewWeekStatus] = useState<'red' | 'amber' | 'green' | 'not-started'>('green');
   
   // Get unique team members from monthly deliverables
@@ -210,28 +216,26 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusU
         <div className="mt-6 space-y-4">
           <div className="flex items-center justify-between">
             <div className="text-sm font-medium text-slate-700">Weekly Status Management</div>
-            <Select value={newWeekStatus} onValueChange={(status: any) => setNewWeekStatus(status)}>
-              <SelectTrigger className="w-auto">
-                <Button variant="outline" size="sm" className="h-8">
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Week Status
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn(
+                  "h-8 justify-start text-left font-normal",
+                  !project.lastCallDate && "text-muted-foreground"
+                )}>
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  {project.lastCallDate ? format(project.lastCallDate, "PPP") : "Last Call Date"}
                 </Button>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="green" onClick={() => onWeeklyStatusAdd?.({ week: `Week-${project.pastWeeksStatus.length + 1}`, status: 'green' })}>
-                  Green
-                </SelectItem>
-                <SelectItem value="amber" onClick={() => onWeeklyStatusAdd?.({ week: `Week-${project.pastWeeksStatus.length + 1}`, status: 'amber' })}>
-                  Amber
-                </SelectItem>
-                <SelectItem value="red" onClick={() => onWeeklyStatusAdd?.({ week: `Week-${project.pastWeeksStatus.length + 1}`, status: 'red' })}>
-                  Red
-                </SelectItem>
-                <SelectItem value="not-started" onClick={() => onWeeklyStatusAdd?.({ week: `Week-${project.pastWeeksStatus.length + 1}`, status: 'not-started' })}>
-                  Not Started
-                </SelectItem>
-              </SelectContent>
-            </Select>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={project.lastCallDate}
+                  onSelect={(date) => date && onLastCallDateUpdate?.(date)}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           
           <div className="grid grid-cols-4 gap-4">

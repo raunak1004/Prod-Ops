@@ -279,6 +279,14 @@ const ProjectDetail: React.FC = () => {
       lead: newLead
     } as any);
   };
+
+  const handleLastCallDateUpdate = (date: Date) => {
+    if (!project) return;
+    setCurrentProject({
+      ...project,
+      lastCallDate: date
+    } as any);
+  };
   
   if (!project) {
     return (
@@ -345,6 +353,7 @@ const ProjectDetail: React.FC = () => {
           onWeeklyStatusAdd={handleWeeklyStatusAdd}
           onWeeklyStatusUpdate={handleWeeklyStatusUpdate}
           onLeadUpdate={handleLeadUpdate}
+          onLastCallDateUpdate={handleLastCallDateUpdate}
         />
         </div>
 
