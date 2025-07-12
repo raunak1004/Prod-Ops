@@ -7,7 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, Clock, CheckCircle, Plus, Search, Calendar, User, Edit3, Save, X } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Plus, Search, Calendar, User, Edit3, Save, X, CalendarIcon } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: number;
@@ -155,6 +159,17 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
   const [isDetailSidebarOpen, setIsDetailSidebarOpen] = useState(false);
   const [isEditingTimeline, setIsEditingTimeline] = useState(false);
   const [editedEta, setEditedEta] = useState("");
+  
+  // Add Issue Form State
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newIssue, setNewIssue] = useState({
+    title: "",
+    description: "",
+    projectId: "",
+    severity: "",
+    assignee: "",
+    eta: undefined as Date | undefined
+  });
 
   const filteredIssues = issues.filter(issue => {
     const matchesStatus = filterStatus === "all" || issue.status === filterStatus;
@@ -239,6 +254,41 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
     setIsEditingTimeline(false);
   };
 
+  const handleCreateIssue = () => {
+    if (!newIssue.title || !newIssue.description || !newIssue.projectId || !newIssue.severity || !newIssue.assignee) {
+      return; // Basic validation
+    }
+
+    const project = projects.find(p => p.id.toString() === newIssue.projectId);
+    const createdIssue: Issue = {
+      id: Math.max(...issues.map(i => i.id)) + 1,
+      projectId: parseInt(newIssue.projectId),
+      projectName: project?.name || "",
+      title: newIssue.title,
+      description: newIssue.description,
+      severity: newIssue.severity as "Sev1" | "Sev2" | "Sev3" | "Incident",
+      status: "unresolved",
+      assignee: newIssue.assignee,
+      dateCreated: new Date().toISOString(),
+      department: project?.department || "Engineering",
+      eta: newIssue.eta?.toISOString().split('T')[0]
+    };
+
+    setIssues(prev => [...prev, createdIssue]);
+    
+    // Reset form
+    setNewIssue({
+      title: "",
+      description: "",
+      projectId: "",
+      severity: "",
+      assignee: "",
+      eta: undefined
+    });
+    
+    setIsAddDialogOpen(false);
+  };
+
   return (
     <div className="space-y-6">
       {/* Issues Summary */}
@@ -321,44 +371,123 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Issues & Blockers</CardTitle>
-            <Dialog>
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Issue
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Create New Issue</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <Input placeholder="Issue title" />
-                  <Textarea placeholder="Issue description" />
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select project" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map(project => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Severity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Sev3">Sev3</SelectItem>
-                      <SelectItem value="Sev2">Sev2</SelectItem>
-                      <SelectItem value="Sev1">Sev1</SelectItem>
-                      <SelectItem value="Incident">Incident</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button className="w-full">Create Issue</Button>
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                  {/* Basic Information */}
+                  <div className="space-y-4">
+                    <Input 
+                      placeholder="Issue title" 
+                      value={newIssue.title}
+                      onChange={(e) => setNewIssue(prev => ({...prev, title: e.target.value}))}
+                    />
+                    <Textarea 
+                      placeholder="Issue description" 
+                      value={newIssue.description}
+                      onChange={(e) => setNewIssue(prev => ({...prev, description: e.target.value}))}
+                      className="min-h-[100px]"
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <Select 
+                        value={newIssue.projectId} 
+                        onValueChange={(value) => setNewIssue(prev => ({...prev, projectId: value}))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.map(project => (
+                            <SelectItem key={project.id} value={project.id.toString()}>
+                              {project.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <Select 
+                        value={newIssue.severity} 
+                        onValueChange={(value) => setNewIssue(prev => ({...prev, severity: value}))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Severity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Sev3">Sev3</SelectItem>
+                          <SelectItem value="Sev2">Sev2</SelectItem>
+                          <SelectItem value="Sev1">Sev1</SelectItem>
+                          <SelectItem value="Incident">Incident</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <Input 
+                      placeholder="Assignee name" 
+                      value={newIssue.assignee}
+                      onChange={(e) => setNewIssue(prev => ({...prev, assignee: e.target.value}))}
+                    />
+                  </div>
+
+                  {/* Timeline Section */}
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <Calendar className="w-4 h-4 text-slate-500" />
+                      <h4 className="font-medium text-slate-700">Timeline</h4>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-500">Created:</span>
+                        <span className="text-slate-600">
+                          {new Date().toLocaleString()}
+                        </span>
+                      </div>
+                      
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-500">ETA:</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={cn(
+                                "w-[200px] justify-start text-left font-normal",
+                                !newIssue.eta && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4" />
+                              {newIssue.eta ? format(newIssue.eta, "PPP") : <span>Set ETA date</span>}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <CalendarComponent
+                              mode="single"
+                              selected={newIssue.eta}
+                              onSelect={(date) => setNewIssue(prev => ({...prev, eta: date}))}
+                              initialFocus
+                              className={cn("p-3 pointer-events-auto")}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button 
+                    className="w-full" 
+                    onClick={handleCreateIssue}
+                    disabled={!newIssue.title || !newIssue.description || !newIssue.projectId || !newIssue.severity || !newIssue.assignee}
+                  >
+                    Create Issue
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
