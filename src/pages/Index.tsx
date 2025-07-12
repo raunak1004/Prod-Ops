@@ -11,6 +11,7 @@ import { TaskFilters } from "@/components/TaskFilters";
 import { ResourceOverview } from "@/components/ResourceOverview";
 import { IssuesTracker } from "@/components/IssuesTracker";
 import { ExecutiveSummary } from "@/components/ExecutiveSummary";
+import { SeatAllocation } from "@/components/SeatAllocation";
 
 // Mock data for projects
 const projects = [
@@ -312,6 +313,10 @@ const Index = () => {
 
           {activeTab === "resources" && (
             <ResourceOverview projects={projectsData} />
+          )}
+
+          {activeTab === "seats" && (
+            <SeatAllocation />
           )}
 
           {activeTab === "escalation" && (

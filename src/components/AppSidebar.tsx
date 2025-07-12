@@ -1,4 +1,4 @@
-import { BarChart3, Users, AlertTriangle, Home } from "lucide-react";
+import { BarChart3, Users, AlertTriangle, Home, MapPin } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -17,6 +17,7 @@ const items = [
   { title: "Overview", value: "overview", icon: Home },
   { title: "Projects", value: "projects", icon: BarChart3 },
   { title: "Resources", value: "resources", icon: Users },
+  { title: "Seat Allocation", value: "seats", icon: MapPin },
   { title: "Escalation", value: "escalation", icon: AlertTriangle },
 ];
 
