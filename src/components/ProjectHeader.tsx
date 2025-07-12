@@ -13,6 +13,7 @@ interface Project {
   opsStatus: 'red' | 'amber' | 'green' | 'not-started';
   healthTrend: 'improving' | 'declining' | 'constant';
   pastWeeksStatus: Array<{ week: string; status: 'red' | 'amber' | 'green' | 'not-started' }>;
+  monthlyDeliverables?: Array<{ assignee: string; [key: string]: any }>;
 }
 
 interface ProjectHeaderProps {
@@ -20,6 +21,7 @@ interface ProjectHeaderProps {
   onStatusUpdate?: (statusType: 'pmStatus' | 'opsStatus', newStatus: string) => void;
   onWeeklyStatusAdd?: (weekStatus: { week: string; status: 'red' | 'amber' | 'green' | 'not-started' }) => void;
   onWeeklyStatusUpdate?: (week: string, newStatus: 'red' | 'amber' | 'green' | 'not-started') => void;
+  onLeadUpdate?: (newLead: string) => void;
 }
 
 const statusConfig = {
@@ -67,8 +69,17 @@ const trendConfig = {
   }
 };
 
-export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate }) => {
+export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate, onLeadUpdate }) => {
   const [newWeekStatus, setNewWeekStatus] = useState<'red' | 'amber' | 'green' | 'not-started'>('green');
+  
+  // Get unique team members from monthly deliverables
+  const getTeamMembers = (): string[] => {
+    if (!project.monthlyDeliverables) return [project.lead];
+    
+    const assignees = project.monthlyDeliverables.map(deliverable => deliverable.assignee);
+    const uniqueMembers = [...new Set([project.lead, ...assignees])];
+    return uniqueMembers.filter(member => member && member.trim() !== '');
+  };
   
   // Calculate health trend based on weekly status changes
   const calculateHealthTrend = (): 'improving' | 'declining' | 'constant' => {
@@ -132,10 +143,21 @@ export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusU
             <h1 className="text-2xl font-bold text-slate-900 mb-2">{project.name}</h1>
             <div className="flex items-center gap-3">
               <Badge variant="outline">{project.department}</Badge>
-              <div className="flex items-center gap-1 text-sm text-slate-600">
-                <User className="w-4 h-4" />
-                {project.lead}
-              </div>
+              <Select value={project.lead} onValueChange={(newLead: string) => onLeadUpdate?.(newLead)}>
+                <SelectTrigger className="w-auto min-w-[120px] bg-transparent border-none hover:bg-slate-100 p-1 h-auto">
+                  <div className="flex items-center gap-1 text-sm text-slate-600">
+                    <User className="w-4 h-4" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="bg-white border border-slate-200 shadow-lg z-50">
+                  {getTeamMembers().map((member) => (
+                    <SelectItem key={member} value={member} className="hover:bg-slate-100">
+                      {member}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="text-right">

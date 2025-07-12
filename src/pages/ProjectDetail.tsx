@@ -271,6 +271,14 @@ const ProjectDetail: React.FC = () => {
       monthlyDeliverables: updatedTasks
     } as any);
   };
+
+  const handleLeadUpdate = (newLead: string) => {
+    if (!project) return;
+    setCurrentProject({
+      ...project,
+      lead: newLead
+    } as any);
+  };
   
   if (!project) {
     return (
@@ -336,6 +344,7 @@ const ProjectDetail: React.FC = () => {
           onStatusUpdate={handleStatusUpdate}
           onWeeklyStatusAdd={handleWeeklyStatusAdd}
           onWeeklyStatusUpdate={handleWeeklyStatusUpdate}
+          onLeadUpdate={handleLeadUpdate}
         />
         </div>
 
