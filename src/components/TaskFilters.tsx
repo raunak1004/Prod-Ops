@@ -1,10 +1,8 @@
 import React from 'react';
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { X } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/ui/dropdown-menu";
+import { X, ChevronDown, Filter } from "lucide-react";
 
 interface Filters {
   status: string;
@@ -31,92 +29,148 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({ filters, onFiltersChan
     key === 'assignee' ? value !== '' : value !== 'all'
   );
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'green': return 'Green';
+      case 'amber': return 'Amber';
+      case 'red': return 'Red';
+      default: return 'All Statuses';
+    }
+  };
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'feature-request': return 'Feature Request';
+      case 'new-feature': return 'New Feature';
+      case 'adhoc': return 'Adhoc';
+      case 'bug': return 'Bug';
+      default: return 'All Types';
+    }
+  };
+
+  const getDepartmentLabel = (department: string) => {
+    switch (department) {
+      case 'Design': return 'Design';
+      case 'Development': return 'Development';
+      case 'QA': return 'QA';
+      case 'PM': return 'PM';
+      default: return 'All Departments';
+    }
+  };
+
   return (
-    <Card className="mb-4">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-slate-700">Filter Tasks</h3>
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="text-slate-500 hover:text-slate-700"
-            >
-              <X className="w-4 h-4 mr-1" />
-              Clear
+    <div className="mb-4 p-4 bg-slate-50 rounded-lg">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-medium text-slate-700">Filter Tasks</h3>
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="text-slate-500 hover:text-slate-700"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Clear
+          </Button>
+        )}
+      </div>
+      
+      <div className="flex flex-wrap gap-3">
+        {/* Status Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8">
+              <Filter className="w-4 h-4 mr-2" />
+              Status: {getStatusLabel(filters.status)}
+              <ChevronDown className="w-4 h-4 ml-2" />
             </Button>
-          )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => updateFilter('status', 'all')}>
+              All Statuses
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => updateFilter('status', 'green')}>
+              Green
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('status', 'amber')}>
+              Amber
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('status', 'red')}>
+              Red
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Type Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8">
+              <Filter className="w-4 h-4 mr-2" />
+              Type: {getTypeLabel(filters.type)}
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => updateFilter('type', 'all')}>
+              All Types
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => updateFilter('type', 'feature-request')}>
+              Feature Request
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('type', 'new-feature')}>
+              New Feature
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('type', 'adhoc')}>
+              Adhoc
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('type', 'bug')}>
+              Bug
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Department Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-8">
+              <Filter className="w-4 h-4 mr-2" />
+              Department: {getDepartmentLabel(filters.department)}
+              <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => updateFilter('department', 'all')}>
+              All Departments
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => updateFilter('department', 'Design')}>
+              Design
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('department', 'Development')}>
+              Development
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('department', 'QA')}>
+              QA
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => updateFilter('department', 'PM')}>
+              PM
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Assignee Filter */}
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-600">Assignee:</span>
+          <Input
+            placeholder="Search assignee..."
+            value={filters.assignee}
+            onChange={(e) => updateFilter('assignee', e.target.value)}
+            className="h-8 w-48"
+          />
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="status-filter" className="text-xs font-medium text-slate-600">
-              Status
-            </Label>
-            <Select value={filters.status} onValueChange={(value) => updateFilter('status', value)}>
-              <SelectTrigger id="status-filter" className="h-8">
-                <SelectValue placeholder="All statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="green">On Track</SelectItem>
-                <SelectItem value="amber">At Risk</SelectItem>
-                <SelectItem value="red">Delayed</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="type-filter" className="text-xs font-medium text-slate-600">
-              Type
-            </Label>
-            <Select value={filters.type} onValueChange={(value) => updateFilter('type', value)}>
-              <SelectTrigger id="type-filter" className="h-8">
-                <SelectValue placeholder="All types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All types</SelectItem>
-                <SelectItem value="feature-request">Feature Request</SelectItem>
-                <SelectItem value="new-feature">New Feature</SelectItem>
-                <SelectItem value="adhoc">Adhoc</SelectItem>
-                <SelectItem value="bug">Bug</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="department-filter" className="text-xs font-medium text-slate-600">
-              Department
-            </Label>
-            <Select value={filters.department} onValueChange={(value) => updateFilter('department', value)}>
-              <SelectTrigger id="department-filter" className="h-8">
-                <SelectValue placeholder="All departments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All departments</SelectItem>
-                <SelectItem value="Design">Design</SelectItem>
-                <SelectItem value="Development">Development</SelectItem>
-                <SelectItem value="QA">QA</SelectItem>
-                <SelectItem value="PM">PM</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="assignee-filter" className="text-xs font-medium text-slate-600">
-              Assignee
-            </Label>
-            <Input
-              id="assignee-filter"
-              placeholder="Search assignee..."
-              value={filters.assignee}
-              onChange={(e) => updateFilter('assignee', e.target.value)}
-              className="h-8"
-            />
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

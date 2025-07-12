@@ -34,19 +34,19 @@ interface MonthlyDeliverablesProps {
 const statusConfig = {
   green: {
     color: "bg-green-500",
-    label: "On Track",
+    label: "Green",
     textColor: "text-green-700",
     bgColor: "bg-green-50",
   },
   amber: {
     color: "bg-amber-500", 
-    label: "At Risk",
+    label: "Amber",
     textColor: "text-amber-700",
     bgColor: "bg-amber-50",
   },
   red: {
     color: "bg-red-500",
-    label: "Delayed", 
+    label: "Red", 
     textColor: "text-red-700",
     bgColor: "bg-red-50",
   }
