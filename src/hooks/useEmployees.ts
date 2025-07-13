@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Employee {
   id: string;
   profile_id?: string;
-  employee_id: string;
+  employee_id?: string;
+  employee_name?: string;
   department: string;
   position: string;
   salary?: number;

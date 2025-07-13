@@ -56,8 +56,10 @@ export const EmployeesList = () => {
   const roleCategories = ["All", ...new Set(employees.map(emp => emp.position))];
 
   const filteredEmployees = employees.filter(employee => {
-    const matchesSearch = employee.profile?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         employee.profile?.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const name = employee.profile?.full_name || employee.employee_name || '';
+    const email = employee.profile?.email || '';
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === "All" || employee.position === selectedRole;
     return matchesSearch && matchesRole;
   });
@@ -260,11 +262,11 @@ export const EmployeesList = () => {
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={employee.profile?.avatar_url} alt={employee.profile?.full_name} />
                   <AvatarFallback>
-                    {employee.profile?.full_name?.split(' ').map(n => n[0]).join('') || employee.employee_id}
+                    {(employee.profile?.full_name || employee.employee_name)?.split(' ').map(n => n[0]).join('') || 'NA'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">{employee.profile?.full_name || 'Unknown'}</CardTitle>
+                  <CardTitle className="text-lg">{employee.profile?.full_name || employee.employee_name || 'Unknown'}</CardTitle>
                   <p className="text-sm text-muted-foreground">{employee.position}</p>
                 </div>
                 <Badge variant={employee.status === "active" ? "default" : "secondary"}>
@@ -279,7 +281,7 @@ export const EmployeesList = () => {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{employee.profile?.email}</span>
+                <span className="text-muted-foreground">{employee.profile?.email || 'No email'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="h-4 w-4 text-muted-foreground" />
