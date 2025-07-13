@@ -99,7 +99,7 @@ export const useProjects = () => {
         .from('projects')
         .select(`
           *,
-          manager:profiles!manager_id(full_name, department)
+          manager:employees!manager_id(full_name, department)
         `)
         .order('created_at', { ascending: false });
 
@@ -118,9 +118,12 @@ export const useProjects = () => {
         .select(`
           *,
           assignee:employees!assigned_to(
+            id,
             employee_id,
-            employee_name,
-            profile:profiles!profile_id(full_name, department)
+            full_name,
+            email,
+            avatar_url,
+            department
           ),
           project:projects(name)
         `)
@@ -131,12 +134,9 @@ export const useProjects = () => {
       // Transform the data to flatten the nested structure
       const transformedTasks = data?.map(task => ({
         ...task,
-        assignee: task.assignee?.profile ? {
-          full_name: task.assignee.profile.full_name,
-          department: task.assignee.profile.department
-        } : task.assignee?.employee_name ? {
-          full_name: task.assignee.employee_name,
-          department: 'Unknown'
+        assignee: task.assignee ? {
+          full_name: task.assignee.full_name || 'Unknown',
+          department: task.assignee.department || 'Unknown'
         } : null
       })) || [];
       
@@ -154,14 +154,18 @@ export const useProjects = () => {
         .select(`
           *,
           reporter:employees!reported_by(
+            id,
             employee_id,
-            employee_name,
-            profile:profiles!profile_id(full_name)
+            full_name,
+            email,
+            avatar_url
           ),
           assignee:employees!assigned_to(
+            id,
             employee_id,
-            employee_name,
-            profile:profiles!profile_id(full_name)
+            full_name,
+            email,
+            avatar_url
           ),
           project:projects(name)
         `)
@@ -171,15 +175,11 @@ export const useProjects = () => {
       
       const transformedIssues = data?.map(issue => ({
         ...issue,
-        reporter: issue.reporter?.profile ? {
-          full_name: issue.reporter.profile.full_name
-        } : issue.reporter?.employee_name ? {
-          full_name: issue.reporter.employee_name
+        reporter: issue.reporter ? {
+          full_name: issue.reporter.full_name || 'Unknown'
         } : null,
-        assignee: issue.assignee?.profile ? {
-          full_name: issue.assignee.profile.full_name
-        } : issue.assignee?.employee_name ? {
-          full_name: issue.assignee.employee_name
+        assignee: issue.assignee ? {
+          full_name: issue.assignee.full_name || 'Unknown'
         } : null
       })) || [];
       
@@ -197,9 +197,12 @@ export const useProjects = () => {
         .select(`
           *,
           employee:employees!responsible_employee(
+            id,
             employee_id,
-            employee_name,
-            profile:profiles!profile_id(full_name, department)
+            full_name,
+            email,
+            avatar_url,
+            department
           ),
           project:projects(name)
         `)
@@ -209,12 +212,9 @@ export const useProjects = () => {
       
       const transformedDeliverables = data?.map(deliverable => ({
         ...deliverable,
-        employee: deliverable.employee?.profile ? {
-          full_name: deliverable.employee.profile.full_name,
-          department: deliverable.employee.profile.department
-        } : deliverable.employee?.employee_name ? {
-          full_name: deliverable.employee.employee_name,
-          department: 'Unknown'
+        employee: deliverable.employee ? {
+          full_name: deliverable.employee.full_name || 'Unknown',
+          department: deliverable.employee.department || 'Unknown'
         } : null
       })) || [];
       

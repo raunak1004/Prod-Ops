@@ -20,7 +20,8 @@ export const EmployeesList = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [newEmployee, setNewEmployee] = useState({
-    employee_name: '',
+    name: '',
+    email: '',
     position: '',
     department: '',
     salary: '',
@@ -56,8 +57,8 @@ export const EmployeesList = () => {
   const roleCategories = ["All", ...new Set(employees.map(emp => emp.position))];
 
   const filteredEmployees = employees.filter(employee => {
-    const name = employee.profile?.full_name || employee.employee_name || '';
-    const email = employee.profile?.email || '';
+    const name = employee.full_name || '';
+    const email = employee.email || '';
     const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === "All" || employee.position === selectedRole;
@@ -69,7 +70,7 @@ export const EmployeesList = () => {
   };
 
   const handleAddEmployee = async () => {
-    if (!newEmployee.employee_name || !newEmployee.position || !newEmployee.department) {
+    if (!newEmployee.name || !newEmployee.position || !newEmployee.department) {
       toast({
         title: "Missing Information",
         description: "Please fill in name, position, and department.",
@@ -83,7 +84,8 @@ export const EmployeesList = () => {
       const { error } = await supabase
         .from('employees')
         .insert([{
-          employee_name: newEmployee.employee_name,
+          full_name: newEmployee.name,
+          email: newEmployee.email,
           position: newEmployee.position,
           department: newEmployee.department,
           salary: newEmployee.salary ? parseFloat(newEmployee.salary) : null,
@@ -96,11 +98,12 @@ export const EmployeesList = () => {
 
       toast({
         title: "Employee Added",
-        description: `${newEmployee.employee_name} has been added successfully.`
+        description: `${newEmployee.name} has been added successfully.`
       });
 
       setNewEmployee({
-        employee_name: '',
+        name: '',
+        email: '',
         position: '',
         department: '',
         salary: '',
@@ -166,9 +169,19 @@ export const EmployeesList = () => {
                 <Label htmlFor="name">Full Name *</Label>
                 <Input
                   id="name"
-                  value={newEmployee.employee_name}
-                  onChange={(e) => setNewEmployee({...newEmployee, employee_name: e.target.value})}
+                  value={newEmployee.name}
+                  onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})}
                   placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newEmployee.email}
+                  onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                  placeholder="Enter email address"
                 />
               </div>
               <div>
@@ -260,13 +273,13 @@ export const EmployeesList = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-3">
                 <Avatar className="h-12 w-12">
-                  <AvatarImage src={employee.profile?.avatar_url} alt={employee.profile?.full_name} />
+                  <AvatarImage src={employee.avatar_url} alt={employee.full_name} />
                   <AvatarFallback>
-                    {(employee.profile?.full_name || employee.employee_name)?.split(' ').map(n => n[0]).join('') || 'NA'}
+                    {employee.full_name?.split(' ').map(n => n[0]).join('') || 'NA'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">{employee.profile?.full_name || employee.employee_name || 'Unknown'}</CardTitle>
+                  <CardTitle className="text-lg">{employee.full_name}</CardTitle>
                   <p className="text-sm text-muted-foreground">{employee.position}</p>
                 </div>
                 <Badge variant={employee.status === "active" ? "default" : "secondary"}>
@@ -281,7 +294,7 @@ export const EmployeesList = () => {
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">{employee.profile?.email || 'No email'}</span>
+                <span className="text-muted-foreground">{employee.email || 'No email'}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Phone className="h-4 w-4 text-muted-foreground" />

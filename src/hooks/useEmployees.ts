@@ -3,23 +3,21 @@ import { supabase } from '@/integrations/supabase/client';
 
 export interface Employee {
   id: string;
-  profile_id?: string;
   employee_id?: string;
-  employee_name?: string;
-  department: string;
-  position: string;
+  full_name: string;
+  email?: string;
+  avatar_url?: string;
+  department?: string;
+  position?: string;
   salary?: number;
   hire_date?: string;
   status: string;
   skills?: string[];
   utilization_rate: number;
+  role?: string;
+  user_id?: string;
   created_at: string;
   updated_at: string;
-  profile?: {
-    full_name: string;
-    email: string;
-    avatar_url?: string;
-  };
 }
 
 export const useEmployees = () => {
@@ -31,14 +29,7 @@ export const useEmployees = () => {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select(`
-          *,
-          profile:profiles!profile_id(
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

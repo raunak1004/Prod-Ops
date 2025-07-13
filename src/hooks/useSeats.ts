@@ -15,10 +15,8 @@ export interface Seat {
   updated_at: string;
   employee?: {
     employee_id: string;
-    profile?: {
-      full_name: string;
-      department: string;
-    };
+    full_name?: string;
+    department?: string;
   };
 }
 
@@ -35,11 +33,8 @@ export const useSeats = () => {
           *,
           employee:employees!assigned_to(
             employee_id,
-            employee_name,
-            profile:profiles!profile_id(
-              full_name,
-              department
-            )
+            full_name,
+            department
           )
         `)
         .order('location', { ascending: true });
@@ -67,7 +62,7 @@ export const useSeats = () => {
 
       if (error) throw error;
       
-      // Refetch to get updated data with employee info
+      // Refresh the data to get updated information
       await fetchSeats();
     } catch (err) {
       console.error('Error updating seat assignment:', err);
@@ -75,23 +70,31 @@ export const useSeats = () => {
     }
   };
 
-  const updateSeatStatus = async (seatId: string, status: string) => {
+  const createSeat = async (seatData: Omit<Seat, 'id' | 'created_at' | 'updated_at' | 'employee'>) => {
     try {
       const { error } = await supabase
         .from('seats')
-        .update({ status })
+        .insert([seatData]);
+
+      if (error) throw error;
+      await fetchSeats();
+    } catch (err) {
+      console.error('Error creating seat:', err);
+      throw err;
+    }
+  };
+
+  const deleteSeat = async (seatId: string) => {
+    try {
+      const { error } = await supabase
+        .from('seats')
+        .delete()
         .eq('id', seatId);
 
       if (error) throw error;
-      
-      // Update local state
-      setSeats(prev => 
-        prev.map(seat => 
-          seat.id === seatId ? { ...seat, status } : seat
-        )
-      );
+      await fetchSeats();
     } catch (err) {
-      console.error('Error updating seat status:', err);
+      console.error('Error deleting seat:', err);
       throw err;
     }
   };
@@ -106,6 +109,7 @@ export const useSeats = () => {
     error,
     refetch: fetchSeats,
     updateSeatAssignment,
-    updateSeatStatus
+    createSeat,
+    deleteSeat
   };
 };

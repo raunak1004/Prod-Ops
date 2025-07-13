@@ -62,72 +62,9 @@ export type Database = {
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "deliverables_responsible_employee_fkey"
-            columns: ["responsible_employee"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
         ]
       }
       employees: {
-        Row: {
-          created_at: string
-          department: string | null
-          employee_id: string | null
-          employee_name: string | null
-          hire_date: string | null
-          id: string
-          position: string | null
-          profile_id: string | null
-          salary: number | null
-          skills: string[] | null
-          status: string | null
-          updated_at: string
-          utilization_rate: number | null
-        }
-        Insert: {
-          created_at?: string
-          department?: string | null
-          employee_id?: string | null
-          employee_name?: string | null
-          hire_date?: string | null
-          id?: string
-          position?: string | null
-          profile_id?: string | null
-          salary?: number | null
-          skills?: string[] | null
-          status?: string | null
-          updated_at?: string
-          utilization_rate?: number | null
-        }
-        Update: {
-          created_at?: string
-          department?: string | null
-          employee_id?: string | null
-          employee_name?: string | null
-          hire_date?: string | null
-          id?: string
-          position?: string | null
-          profile_id?: string | null
-          salary?: number | null
-          skills?: string[] | null
-          status?: string | null
-          updated_at?: string
-          utilization_rate?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "employees_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      employees_new: {
         Row: {
           avatar_url: string | null
           created_at: string
@@ -226,66 +163,13 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "issues_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "issues_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "issues_reported_by_fkey"
-            columns: ["reported_by"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
         ]
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          department: string | null
-          email: string | null
-          full_name: string | null
-          id: string
-          position: string | null
-          role: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          department?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          position?: string | null
-          role?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          department?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          position?: string | null
-          role?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Relationships: []
       }
       projects: {
         Row: {
@@ -330,15 +214,7 @@ export type Database = {
           status?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "projects_manager_id_fkey"
-            columns: ["manager_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       seats: {
         Row: {
@@ -380,15 +256,7 @@ export type Database = {
           type?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "seats_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       tasks: {
         Row: {
@@ -431,13 +299,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "tasks_project_id_fkey"
             columns: ["project_id"]

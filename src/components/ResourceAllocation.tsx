@@ -236,8 +236,8 @@ export const ResourceAllocation = () => {
   // Transform Supabase data to match component interface
   const transformedEmployees: Employee[] = employees.map(emp => ({
     id: emp.id,
-    name: emp.profile?.full_name || 'Unknown',
-    email: emp.profile?.email || `${emp.profile?.full_name?.toLowerCase().replace(' ', '.')}@company.com`,
+    name: emp.full_name || 'Unknown',
+    email: emp.email || `${emp.full_name?.toLowerCase().replace(' ', '.')}@company.com`,
     role: emp.position || 'Unknown',
     department: emp.department || 'Unknown',
     skills: emp.skills || []
