@@ -72,9 +72,9 @@ const statusConfig = {
 };
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdate, onClick, isSelected }) => {
-  const config = statusConfig[project.status];
-  const pmConfig = statusConfig[project.pmStatus];
-  const opsConfig = statusConfig[project.opsStatus];
+  const config = statusConfig[project.status] || statusConfig["not-started"];
+  const pmConfig = statusConfig[project.pmStatus] || statusConfig["not-started"];
+  const opsConfig = statusConfig[project.opsStatus] || statusConfig["not-started"];
   const initials = project.lead.split(' ').map(n => n[0]).join('');
   const navigate = useNavigate();
   
