@@ -11,7 +11,7 @@ import { AddTaskForm } from './AddTaskForm';
 import { TaskFilters } from './TaskFilters';
 
 interface Task {
-  id: number;
+  id: string;
   task: string;
   dueDate: string;
   comments: string;
@@ -27,7 +27,7 @@ interface MonthlyDeliverablesProps {
   tasks: Task[];
   onAddTask: (task: any) => void;
   onTaskClick: (task: Task) => void;
-  onTaskStatusUpdate?: (taskId: number, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed' | 'done') => void;
+  onTaskStatusUpdate?: (taskId: string, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed' | 'done') => void;
   selectedTask: Task | null;
   isTaskDetailOpen: boolean;
   setIsTaskDetailOpen: (open: boolean) => void;

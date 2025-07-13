@@ -10,6 +10,8 @@ import { ExecutiveSummary } from '@/components/ExecutiveSummary';
 import { ResourceOverview } from '@/components/ResourceOverview';
 import { IssuesTracker } from '@/components/IssuesTracker';
 import { useProjects } from '@/hooks/useProjects';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 // Navigation tabs configuration
 const getNavigationTabs = (projectData: any) => [
@@ -39,13 +41,36 @@ const ProjectDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { projects, loading } = useProjects();
+  const { projects, loading, deliverables, refetch } = useProjects();
   const [activeTab, setActiveTab] = useState('project');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
+  const [weeklyStatuses, setWeeklyStatuses] = useState<any[]>([]);
+  const { toast } = useToast();
   
   // Find project from Supabase data using full UUID
   const currentProject = projects.find(p => p.id === id);
+  
+  // Fetch weekly statuses for this project
+  React.useEffect(() => {
+    const fetchWeeklyStatuses = async () => {
+      if (!id) return;
+      
+      const { data, error } = await supabase
+        .from('weekly_status')
+        .select('*')
+        .eq('project_id', id)
+        .order('week');
+      
+      if (error) {
+        console.error('Error fetching weekly statuses:', error);
+      } else {
+        setWeeklyStatuses(data || []);
+      }
+    };
+    
+    fetchWeeklyStatuses();
+  }, [id]);
   
   // Transform to legacy format if found
   const mapStatusToUIStatus = (dbStatus: string): "green" | "amber" | "red" | "not-started" => {
@@ -83,13 +108,64 @@ const ProjectDetail: React.FC = () => {
     pmStatus: mapStatusToUIStatus(currentProject.status),
     opsStatus: mapStatusToUIStatus(currentProject.status),
     healthTrend: "constant" as const,
-    monthlyDeliverables: [],
-    pastWeeksStatus: []
+    monthlyDeliverables: deliverables
+      .filter(d => d.project_id === currentProject.id)
+      .map(d => ({
+        id: d.id,
+        task: d.name,
+        dueDate: d.due_date || '',
+        comments: d.description || '',
+        description: d.description || '',
+        type: d.type || 'new-feature',
+        assignee: d.responsible_employee || 'Unassigned',
+        department: currentProject.manager?.department || 'Unknown',
+        status: mapStatusToUIStatus(d.status || 'pending'),
+        flagged: false
+      })),
+    pastWeeksStatus: weeklyStatuses.map(ws => ({
+      week: ws.week,
+      status: mapStatusToUIStatus(ws.status)
+    }))
   } : null;
 
-  const handleAddTask = (taskData: any) => {
-    // This would need to create a new deliverable in Supabase
-    console.log('Add task:', taskData);
+  const handleAddTask = async (taskData: any) => {
+    if (!currentProject?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('deliverables')
+        .insert({
+          name: taskData.task,
+          description: taskData.description,
+          type: taskData.type,
+          responsible_employee: taskData.assignee,
+          due_date: taskData.dueDate.toISOString().split('T')[0],
+          project_id: currentProject.id,
+          status: 'pending'
+        });
+      
+      if (error) {
+        console.error('Error adding task:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add task. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Task added successfully!"
+        });
+        refetch(); // Refresh the data
+      }
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add task. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleTaskClick = (task: any) => {
@@ -106,18 +182,100 @@ const ProjectDetail: React.FC = () => {
     console.log('Update status:', statusType, newStatus);
   };
 
-  const handleWeeklyStatusAdd = (weekStatus: { week: string; status: 'red' | 'amber' | 'green' | 'not-started' }) => {
-    // This would need to create a status entry in Supabase
-    console.log('Add weekly status:', weekStatus);
+  const handleWeeklyStatusAdd = async (weekStatus: { week: string; status: 'red' | 'amber' | 'green' | 'not-started' }) => {
+    if (!currentProject?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('weekly_status')
+        .insert({
+          project_id: currentProject.id,
+          week: weekStatus.week,
+          status: weekStatus.status
+        });
+      
+      if (error) {
+        console.error('Error adding weekly status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add weekly status. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        // Update local state
+        setWeeklyStatuses(prev => [...prev, {
+          project_id: currentProject.id,
+          week: weekStatus.week,
+          status: weekStatus.status
+        }]);
+        toast({
+          title: "Success",
+          description: "Weekly status added successfully!"
+        });
+      }
+    } catch (error) {
+      console.error('Error adding weekly status:', error);
+    }
   };
-  const handleWeeklyStatusUpdate = (week: string, newStatus: 'red' | 'amber' | 'green' | 'not-started') => {
-    // This would need to update the status entry in Supabase
-    console.log('Update weekly status:', week, newStatus);
+  
+  const handleWeeklyStatusUpdate = async (week: string, newStatus: 'red' | 'amber' | 'green' | 'not-started') => {
+    if (!currentProject?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('weekly_status')
+        .update({ status: newStatus })
+        .eq('project_id', currentProject.id)
+        .eq('week', week);
+      
+      if (error) {
+        console.error('Error updating weekly status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update weekly status. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        // Update local state
+        setWeeklyStatuses(prev => prev.map(ws => 
+          ws.week === week && ws.project_id === currentProject.id
+            ? { ...ws, status: newStatus }
+            : ws
+        ));
+        toast({
+          title: "Success",
+          description: "Weekly status updated successfully!"
+        });
+      }
+    } catch (error) {
+      console.error('Error updating weekly status:', error);
+    }
   };
 
-  const handleTaskStatusUpdate = (taskId: number, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed' | 'done') => {
-    // This would need to update the deliverable status in Supabase
-    console.log('Update task status:', taskId, newStatus);
+  const handleTaskStatusUpdate = async (taskId: string, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed' | 'done') => {
+    try {
+      const { error } = await supabase
+        .from('deliverables')
+        .update({ status: newStatus })
+        .eq('id', taskId);
+      
+      if (error) {
+        console.error('Error updating task status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update task status. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Task status updated successfully!"
+        });
+        refetch(); // Refresh the data
+      }
+    } catch (error) {
+      console.error('Error updating task status:', error);
+    }
   };
 
   const handleLeadUpdate = (newLead: string) => {

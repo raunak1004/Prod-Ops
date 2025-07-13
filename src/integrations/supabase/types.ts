@@ -308,6 +308,41 @@ export type Database = {
           },
         ]
       }
+      weekly_status: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          status: string
+          updated_at: string
+          week: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          status?: string
+          updated_at?: string
+          week: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          status?: string
+          updated_at?: string
+          week?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_status_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
