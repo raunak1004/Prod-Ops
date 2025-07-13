@@ -138,7 +138,7 @@ const ProjectDetail: React.FC = () => {
           name: taskData.task,
           description: taskData.description,
           type: taskData.type,
-          responsible_employee: taskData.assignee,
+          responsible_employee: null, // Set to null since we don't have employee UUIDs, just names
           due_date: taskData.dueDate.toISOString().split('T')[0],
           project_id: currentProject.id,
           status: 'pending'
