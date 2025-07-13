@@ -4,29 +4,23 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, User, Search } from "lucide-react";
+import { MapPin, User, Search, Loader2 } from "lucide-react";
+import { useEmployees } from "@/hooks/useEmployees";
 
 interface Seat {
   id: string;
   level: number;
   seatNumber: number;
   employee?: {
-    name: string;
+    id: string;
+    full_name: string;
     department: string;
     email: string;
   };
 }
 
-// Mock employees data
-const employees = [
-  { name: "John Doe", department: "Engineering", email: "john@company.com" },
-  { name: "Jane Smith", department: "Marketing", email: "jane@company.com" },
-  { name: "Mike Johnson", department: "Sales", email: "mike@company.com" },
-  { name: "Sarah Wilson", department: "HR", email: "sarah@company.com" },
-  { name: "David Brown", department: "Finance", email: "david@company.com" },
-];
-
 export const SeatAllocation = () => {
+  const { employees, loading: employeesLoading, error: employeesError } = useEmployees();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLevel, setSelectedLevel] = useState("all");
   
@@ -59,8 +53,8 @@ export const SeatAllocation = () => {
     const levelMatch = selectedLevel === "all" || seat.level.toString() === selectedLevel;
     const searchMatch = !searchTerm || 
       seat.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      seat.employee?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      seat.employee?.department.toLowerCase().includes(searchTerm.toLowerCase());
+      seat.employee?.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      seat.employee?.department?.toLowerCase().includes(searchTerm.toLowerCase());
     
     return levelMatch && searchMatch;
   });
@@ -111,7 +105,7 @@ export const SeatAllocation = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-sm font-semibold truncate text-foreground">{seat.employee.name}</span>
+              <span className="text-sm font-semibold truncate text-foreground">{seat.employee.full_name}</span>
             </div>
             <p className="text-xs text-muted-foreground truncate bg-white/50 dark:bg-black/20 px-2 py-1 rounded">
               {seat.employee.department}
@@ -128,22 +122,38 @@ export const SeatAllocation = () => {
         ) : (
           <div className="space-y-3">
             <div className="text-sm text-muted-foreground font-medium">Available</div>
-            <Select onValueChange={(employeeName) => {
-              const employee = employees.find(e => e.name === employeeName);
-              if (employee) assignEmployee(seat.id, employee);
+            <Select onValueChange={(employeeId) => {
+              const employee = employees.find(e => e.id === employeeId);
+              if (employee) {
+                assignEmployee(seat.id, {
+                  id: employee.id,
+                  full_name: employee.full_name,
+                  department: employee.department || '',
+                  email: employee.email || ''
+                });
+              }
             }}>
               <SelectTrigger className="w-full h-8 text-xs seamless-input">
                 <SelectValue placeholder="Assign Employee" />
               </SelectTrigger>
-              <SelectContent>
-                {employees.map((employee) => (
-                  <SelectItem key={employee.email} value={employee.name}>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{employee.name}</span>
-                      <span className="text-xs text-muted-foreground">{employee.department}</span>
-                    </div>
-                  </SelectItem>
-                ))}
+              <SelectContent className="bg-background border border-border shadow-lg z-50">
+                {employeesLoading ? (
+                  <div className="flex items-center justify-center p-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="ml-2 text-sm">Loading employees...</span>
+                  </div>
+                ) : employees.length > 0 ? (
+                  employees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{employee.full_name}</span>
+                        <span className="text-xs text-muted-foreground">{employee.department}</span>
+                      </div>
+                    </SelectItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-sm text-muted-foreground">No employees available</div>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -214,6 +224,26 @@ export const SeatAllocation = () => {
       </Card>
     );
   };
+
+  if (employeesLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading seat allocation...</span>
+      </div>
+    );
+  }
+
+  if (employeesError) {
+    return (
+      <div className="flex items-center justify-center min-h-96">
+        <div className="text-center">
+          <p className="text-destructive font-semibold">Error loading employees</p>
+          <p className="text-muted-foreground">{employeesError}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 max-w-7xl mx-auto">
