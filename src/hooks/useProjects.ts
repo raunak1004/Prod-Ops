@@ -17,7 +17,7 @@ export interface Project {
   manager?: {
     full_name: string;
     department: string;
-  };
+  } | null;
 }
 
 export interface Task {
@@ -35,10 +35,10 @@ export interface Task {
   assignee?: {
     full_name: string;
     department: string;
-  };
+  } | null;
   project?: {
     name: string;
-  };
+  } | null;
 }
 
 export interface Issue {
@@ -55,13 +55,13 @@ export interface Issue {
   updated_at: string;
   reporter?: {
     full_name: string;
-  };
+  } | null;
   assignee?: {
     full_name: string;
-  };
+  } | null;
   project?: {
     name: string;
-  };
+  } | null;
 }
 
 export interface Deliverable {
@@ -79,10 +79,10 @@ export interface Deliverable {
   employee?: {
     full_name: string;
     department: string;
-  };
+  } | null;
   project?: {
     name: string;
-  };
+  } | null;
 }
 
 export const useProjects = () => {
@@ -95,28 +95,13 @@ export const useProjects = () => {
 
   const fetchProjects = async () => {
     try {
-      const { data: projectsData, error } = await supabase
+      const { data, error } = await supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fetch managers separately to avoid relationship issues
-      const managerIds = projectsData?.map(p => p.manager_id).filter(Boolean) || [];
-      const { data: managersData } = await supabase
-        .from('employees')
-        .select('id, full_name, department')
-        .in('id', managerIds);
-
-      const managersMap = new Map(managersData?.map(m => [m.id, m]) || []);
-
-      const projectsWithManagers = projectsData?.map(project => ({
-        ...project,
-        manager: project.manager_id ? managersMap.get(project.manager_id) : null
-      })) || [];
-
-      setProjects(projectsWithManagers);
+      setProjects(data || []);
     } catch (err) {
       console.error('Error fetching projects:', err);
       setError('Unable to load projects. Please check your connection and try again.');
@@ -125,32 +110,13 @@ export const useProjects = () => {
 
   const fetchTasks = async () => {
     try {
-      const { data: tasksData, error } = await supabase
+      const { data, error } = await supabase
         .from('tasks')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fetch projects and employees separately
-      const projectIds = tasksData?.map(t => t.project_id).filter(Boolean) || [];
-      const employeeIds = tasksData?.map(t => t.assigned_to).filter(Boolean) || [];
-
-      const [{ data: projectsData }, { data: employeesData }] = await Promise.all([
-        supabase.from('projects').select('id, name').in('id', projectIds),
-        supabase.from('employees').select('id, full_name, department').in('id', employeeIds)
-      ]);
-
-      const projectsMap = new Map(projectsData?.map(p => [p.id, p]) || []);
-      const employeesMap = new Map(employeesData?.map(e => [e.id, e]) || []);
-
-      const transformedTasks = tasksData?.map(task => ({
-        ...task,
-        assignee: task.assigned_to ? employeesMap.get(task.assigned_to) : null,
-        project: task.project_id ? projectsMap.get(task.project_id) : null
-      })) || [];
-      
-      setTasks(transformedTasks);
+      setTasks(data || []);
     } catch (err) {
       console.error('Error fetching project tasks:', err);
       setError('Unable to load project tasks. Please check your connection.');
@@ -159,35 +125,13 @@ export const useProjects = () => {
 
   const fetchIssues = async () => {
     try {
-      const { data: issuesData, error } = await supabase
+      const { data, error } = await supabase
         .from('issues')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fetch projects and employees separately
-      const projectIds = issuesData?.map(i => i.project_id).filter(Boolean) || [];
-      const reporterIds = issuesData?.map(i => i.reported_by).filter(Boolean) || [];
-      const assigneeIds = issuesData?.map(i => i.assigned_to).filter(Boolean) || [];
-      const allEmployeeIds = [...new Set([...reporterIds, ...assigneeIds])];
-
-      const [{ data: projectsData }, { data: employeesData }] = await Promise.all([
-        supabase.from('projects').select('id, name').in('id', projectIds),
-        supabase.from('employees').select('id, full_name').in('id', allEmployeeIds)
-      ]);
-
-      const projectsMap = new Map(projectsData?.map(p => [p.id, p]) || []);
-      const employeesMap = new Map(employeesData?.map(e => [e.id, e]) || []);
-      
-      const transformedIssues = issuesData?.map(issue => ({
-        ...issue,
-        reporter: issue.reported_by ? employeesMap.get(issue.reported_by) : null,
-        assignee: issue.assigned_to ? employeesMap.get(issue.assigned_to) : null,
-        project: issue.project_id ? projectsMap.get(issue.project_id) : null
-      })) || [];
-      
-      setIssues(transformedIssues);
+      setIssues(data || []);
     } catch (err) {
       console.error('Error fetching project issues:', err);
       setError('Unable to load project issues. Database connection failed.');
@@ -196,32 +140,13 @@ export const useProjects = () => {
 
   const fetchDeliverables = async () => {
     try {
-      const { data: deliverablesData, error } = await supabase
+      const { data, error } = await supabase
         .from('deliverables')
         .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      // Fetch projects and employees separately
-      const projectIds = deliverablesData?.map(d => d.project_id).filter(Boolean) || [];
-      const employeeIds = deliverablesData?.map(d => d.responsible_employee).filter(Boolean) || [];
-
-      const [{ data: projectsData }, { data: employeesData }] = await Promise.all([
-        supabase.from('projects').select('id, name').in('id', projectIds),
-        supabase.from('employees').select('id, full_name, department').in('id', employeeIds)
-      ]);
-
-      const projectsMap = new Map(projectsData?.map(p => [p.id, p]) || []);
-      const employeesMap = new Map(employeesData?.map(e => [e.id, e]) || []);
-      
-      const transformedDeliverables = deliverablesData?.map(deliverable => ({
-        ...deliverable,
-        employee: deliverable.responsible_employee ? employeesMap.get(deliverable.responsible_employee) : null,
-        project: deliverable.project_id ? projectsMap.get(deliverable.project_id) : null
-      })) || [];
-      
-      setDeliverables(transformedDeliverables);
+      setDeliverables(data || []);
     } catch (err) {
       console.error('Error fetching project deliverables:', err);
       setError('Unable to load project deliverables. Please try again.');

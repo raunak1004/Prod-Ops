@@ -17,7 +17,7 @@ export interface Seat {
     employee_id: string;
     full_name?: string;
     department?: string;
-  };
+  } | null;
 }
 
 export const useSeats = () => {
@@ -27,28 +27,13 @@ export const useSeats = () => {
 
   const fetchSeats = async () => {
     try {
-      const { data: seatsData, error } = await supabase
+      const { data, error } = await supabase
         .from('seats')
         .select('*')
         .order('location', { ascending: true });
 
       if (error) throw error;
-
-      // Fetch employees separately
-      const employeeIds = seatsData?.map(s => s.assigned_to).filter(Boolean) || [];
-      const { data: employeesData } = await supabase
-        .from('employees')
-        .select('id, employee_id, full_name, department')
-        .in('id', employeeIds);
-
-      const employeesMap = new Map(employeesData?.map(e => [e.id, e]) || []);
-
-      const seatsWithEmployees = seatsData?.map(seat => ({
-        ...seat,
-        employee: seat.assigned_to ? employeesMap.get(seat.assigned_to) : null
-      })) || [];
-
-      setSeats(seatsWithEmployees);
+      setSeats(data || []);
     } catch (err) {
       console.error('Error fetching seat data:', err);
       setError('Unable to load seat information. Database connection failed.');
