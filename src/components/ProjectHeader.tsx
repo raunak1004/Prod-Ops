@@ -9,7 +9,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
   department: string;
   lead: string;

@@ -14,7 +14,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
   status: "green" | "amber" | "red";
   progress: number;
@@ -31,7 +31,7 @@ interface Project {
 
 interface Issue {
   id: number;
-  projectId: number;
+  projectId: string;
   projectName: string;
   title: string;
   description: string;
@@ -53,7 +53,7 @@ interface IssuesTrackerProps {
 const mockIssues: Issue[] = [
   {
     id: 1,
-    projectId: 2,
+    projectId: "2",
     projectName: "E-commerce Platform Redesign",
     title: "Database connection timeout",
     description: "Intermittent connection timeouts causing API failures during peak hours",
@@ -67,7 +67,7 @@ const mockIssues: Issue[] = [
   },
   {
     id: 2,
-    projectId: 3,
+    projectId: "3",
     projectName: "Customer Analytics Dashboard", 
     title: "Third-party API rate limiting",
     description: "External service rate limits blocking batch operations",
@@ -81,7 +81,7 @@ const mockIssues: Issue[] = [
   },
   {
     id: 3,
-    projectId: 4,
+    projectId: "4",
     projectName: "Mobile App Development",
     title: "Data pipeline failing",
     description: "ETL process failing due to schema changes in source system",
@@ -95,7 +95,7 @@ const mockIssues: Issue[] = [
   },
   {
     id: 4,
-    projectId: 5,
+    projectId: "5",
     projectName: "Marketing Automation Tool",
     title: "Performance issues with large datasets",
     description: "Dashboard loading times exceed 30 seconds for enterprise customers",
@@ -109,7 +109,7 @@ const mockIssues: Issue[] = [
   },
   {
     id: 5,
-    projectId: 6,
+    projectId: "6",
     projectName: "AI-Powered Chatbot",
     title: "Missing user permissions module",
     description: "Role-based access control not implemented for sensitive data",
@@ -123,7 +123,7 @@ const mockIssues: Issue[] = [
   },
   {
     id: 6,
-    projectId: 7,
+    projectId: "7",
     projectName: "Cloud Infrastructure Migration",
     title: "Email template rendering issues",
     description: "Templates not displaying correctly in certain email clients",
@@ -174,7 +174,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
   const filteredIssues = issues.filter(issue => {
     const matchesStatus = filterStatus === "all" || issue.status === filterStatus;
     const matchesSeverity = filterSeverity === "all" || issue.severity === filterSeverity;
-    const matchesProject = filterProject === "all" || issue.projectId.toString() === filterProject;
+    const matchesProject = filterProject === "all" || issue.projectId === filterProject;
     const matchesSearch = issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          issue.projectName.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSeverity && matchesProject && matchesSearch;
@@ -259,10 +259,10 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
       return; // Basic validation
     }
 
-    const project = projects.find(p => p.id.toString() === newIssue.projectId);
+    const project = projects.find(p => p.id === newIssue.projectId);
     const createdIssue: Issue = {
       id: Math.max(...issues.map(i => i.id)) + 1,
-      projectId: parseInt(newIssue.projectId),
+      projectId: newIssue.projectId,
       projectName: project?.name || "",
       title: newIssue.title,
       description: newIssue.description,
@@ -407,7 +407,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                         </SelectTrigger>
                         <SelectContent>
                           {projects.map(project => (
-                            <SelectItem key={project.id} value={project.id.toString()}>
+                            <SelectItem key={project.id} value={project.id}>
                               {project.name}
                             </SelectItem>
                           ))}
@@ -512,7 +512,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
               <SelectContent>
                 <SelectItem value="all">All Projects</SelectItem>
                 {projects.map(project => (
-                  <SelectItem key={project.id} value={project.id.toString()}>
+                  <SelectItem key={project.id} value={project.id}>
                     {project.name}
                   </SelectItem>
                 ))}

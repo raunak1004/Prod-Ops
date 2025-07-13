@@ -44,12 +44,12 @@ const ProjectDetail: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
   
-  // Find project from Supabase data
-  const currentProject = projects.find(p => p.id.slice(-6) === id?.padStart(6, '0'));
+  // Find project from Supabase data using full UUID
+  const currentProject = projects.find(p => p.id === id);
   
   // Transform to legacy format if found
   const project = currentProject ? {
-    id: Number(currentProject.id.slice(-6)),
+    id: currentProject.id, // Use full UUID
     name: currentProject.name,
     type: "Projects" as const,
     status: currentProject.status as "green" | "amber" | "red",

@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle } from "lucide-react";
 
 interface Project {
-  id: number;
+  id: string;
   name: string;
   status: "green" | "amber" | "red";
   progress: number;

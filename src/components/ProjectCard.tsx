@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useNavigate } from "react-router-dom";
 
 interface Project {
-  id: number;
+  id: string; // Changed from number to string to support UUIDs
   name: string;
   status: "green" | "amber" | "red" | "not-started";
   progress: number;
@@ -35,7 +35,7 @@ interface Project {
 
 interface ProjectCardProps {
   project: Project;
-  onStatusUpdate?: (projectId: number, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => void;
+  onStatusUpdate?: (projectId: string, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => void;
   onClick?: () => void;
   isSelected?: boolean;
 }

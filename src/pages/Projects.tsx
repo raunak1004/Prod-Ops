@@ -19,7 +19,8 @@ const Projects = () => {
   
   // Transform projects to match the legacy format for ProjectCard component
   const transformedProjects = projects.map(project => ({
-    id: Number(project.id.slice(-6)), // Convert UUID to number for legacy compatibility
+    id: project.id, // Use full UUID instead of converting to number
+    originalId: project.id, // Keep original ID for navigation
     name: project.name,
     type: "Projects" as const,
     status: project.status as "green" | "amber" | "red",
@@ -97,8 +98,7 @@ const Projects = () => {
               project={project} 
               onStatusUpdate={(id, statusType, newStatus) => {
                 if (statusType === 'status') {
-                  const projectId = projects.find(p => Number(p.id.slice(-6)) === id)?.id;
-                  if (projectId) handleStatusUpdate(projectId, 'status', newStatus);
+                  handleStatusUpdate(id, 'status', newStatus);
                 }
               }}
             />

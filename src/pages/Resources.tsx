@@ -40,7 +40,7 @@ const Resources = () => {
 
   // Transform projects to match the legacy format
   const transformedProjects = projects.map(project => ({
-    id: Number(project.id),
+    id: project.id, // Use full UUID
     name: project.name,
     type: "Projects" as const,
     status: project.status as "green" | "amber" | "red",

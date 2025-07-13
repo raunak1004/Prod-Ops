@@ -7,7 +7,7 @@ const Escalation = () => {
 
   // Transform projects to match the legacy format for IssuesTracker component
   const transformedProjects = projects.map(project => ({
-    id: Number(project.id.slice(-6)),
+    id: project.id, // Use full UUID
     name: project.name,
     type: "Projects" as const,
     status: project.status as "green" | "amber" | "red",

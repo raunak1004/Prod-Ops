@@ -145,7 +145,7 @@ const Overview = () => {
 
         {/* Executive Summary */}
         <ExecutiveSummary projects={projects.map(p => ({
-          id: Number(p.id),
+          id: p.id, // Use string UUID instead of converting to number
           name: p.name,
           type: "Projects" as const,
           status: p.status as "green" | "amber" | "red",
