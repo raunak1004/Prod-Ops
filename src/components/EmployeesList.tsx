@@ -1,16 +1,31 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Users, Mail, Phone, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Search, Users, Mail, Phone, Loader2, Plus } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export const EmployeesList = () => {
-  const { employees, loading, error } = useEmployees();
+  const { employees, loading, error, refetch } = useEmployees();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRole, setSelectedRole] = useState("All");
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
+    employee_name: '',
+    position: '',
+    department: '',
+    salary: '',
+    skills: ''
+  });
 
   if (loading) {
     return (
@@ -51,6 +66,58 @@ export const EmployeesList = () => {
     return employees.filter(emp => emp.position === role).length;
   };
 
+  const handleAddEmployee = async () => {
+    if (!newEmployee.employee_name || !newEmployee.position || !newEmployee.department) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in name, position, and department.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsAdding(true);
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .insert([{
+          employee_name: newEmployee.employee_name,
+          position: newEmployee.position,
+          department: newEmployee.department,
+          salary: newEmployee.salary ? parseFloat(newEmployee.salary) : null,
+          skills: newEmployee.skills ? newEmployee.skills.split(',').map(s => s.trim()) : [],
+          status: 'active',
+          utilization_rate: 0
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Employee Added",
+        description: `${newEmployee.employee_name} has been added successfully.`
+      });
+
+      setNewEmployee({
+        employee_name: '',
+        position: '',
+        department: '',
+        salary: '',
+        skills: ''
+      });
+      setIsAddDialogOpen(false);
+      refetch();
+    } catch (err) {
+      console.error('Error adding employee:', err);
+      toast({
+        title: "Error",
+        description: "Failed to add employee. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Statistics Cards */}
@@ -73,6 +140,92 @@ export const EmployeesList = () => {
             </CardContent>
           </Card>
         ))}
+      </div>
+
+      {/* Header with Add Button */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold">Team Members</h2>
+          <p className="text-slate-600 text-sm">{employees.length} employees total</p>
+        </div>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Employee
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Employee</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="name">Full Name *</Label>
+                <Input
+                  id="name"
+                  value={newEmployee.employee_name}
+                  onChange={(e) => setNewEmployee({...newEmployee, employee_name: e.target.value})}
+                  placeholder="Enter full name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="position">Position *</Label>
+                <Input
+                  id="position"
+                  value={newEmployee.position}
+                  onChange={(e) => setNewEmployee({...newEmployee, position: e.target.value})}
+                  placeholder="e.g. Senior Developer"
+                />
+              </div>
+              <div>
+                <Label htmlFor="department">Department *</Label>
+                <Input
+                  id="department"
+                  value={newEmployee.department}
+                  onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
+                  placeholder="e.g. Engineering"
+                />
+              </div>
+              <div>
+                <Label htmlFor="salary">Salary</Label>
+                <Input
+                  id="salary"
+                  type="number"
+                  value={newEmployee.salary}
+                  onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})}
+                  placeholder="Annual salary"
+                />
+              </div>
+              <div>
+                <Label htmlFor="skills">Skills</Label>
+                <Input
+                  id="skills"
+                  value={newEmployee.skills}
+                  onChange={(e) => setNewEmployee({...newEmployee, skills: e.target.value})}
+                  placeholder="React, TypeScript, Node.js (comma-separated)"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleAddEmployee}
+                  disabled={isAdding}
+                  className="flex-1"
+                >
+                  {isAdding && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Add Employee
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  disabled={isAdding}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Filters */}
