@@ -124,7 +124,7 @@ const ProjectDetail: React.FC = () => {
       })),
     pastWeeksStatus: weeklyStatuses.map(ws => ({
       week: ws.week,
-      status: mapStatusToUIStatus(ws.status)
+      status: ws.status as 'green' | 'amber' | 'red' | 'not-started'
     }))
   } : null;
 
