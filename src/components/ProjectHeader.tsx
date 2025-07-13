@@ -36,24 +36,28 @@ const statusConfig = {
     label: "Green",
     textColor: "text-green-700",
     bgColor: "bg-green-50",
+    borderColor: "border-green-300"
   },
   amber: {
     color: "bg-amber-500", 
     label: "Amber",
     textColor: "text-amber-700",
     bgColor: "bg-amber-50",
+    borderColor: "border-amber-300"
   },
   red: {
     color: "bg-red-500",
     label: "Red", 
     textColor: "text-red-700",
     bgColor: "bg-red-50",
+    borderColor: "border-red-300"
   },
   "not-started": {
     color: "bg-slate-500",
     label: "Not Started",
     textColor: "text-slate-700",
     bgColor: "bg-slate-50",
+    borderColor: "border-slate-300"
   }
 };
 

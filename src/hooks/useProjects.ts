@@ -74,6 +74,7 @@ export interface Deliverable {
   due_date?: string;
   completed_date?: string;
   responsible_employee?: string;
+  assignee_name?: string; // Add the new field
   created_at: string;
   updated_at: string;
   employee?: {

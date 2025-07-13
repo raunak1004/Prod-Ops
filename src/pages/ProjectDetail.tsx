@@ -117,7 +117,7 @@ const ProjectDetail: React.FC = () => {
         comments: d.description || '',
         description: d.description || '',
         type: d.type || 'new-feature',
-        assignee: d.responsible_employee || 'Unassigned',
+        assignee: d.assignee_name || 'Unassigned', // Use the new assignee_name field
         department: currentProject.manager?.department || 'Unknown',
         status: mapStatusToUIStatus(d.status || 'pending'),
         flagged: false
@@ -138,7 +138,7 @@ const ProjectDetail: React.FC = () => {
           name: taskData.task,
           description: taskData.description,
           type: taskData.type,
-          responsible_employee: null, // Set to null since we don't have employee UUIDs, just names
+          assignee_name: taskData.assignee, // Use the new assignee_name field
           due_date: taskData.dueDate.toISOString().split('T')[0],
           project_id: currentProject.id,
           status: 'pending'

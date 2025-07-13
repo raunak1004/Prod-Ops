@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       deliverables: {
         Row: {
+          assignee_name: string | null
           completed_date: string | null
           created_at: string
           description: string | null
@@ -29,6 +30,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          assignee_name?: string | null
           completed_date?: string | null
           created_at?: string
           description?: string | null
@@ -42,6 +44,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          assignee_name?: string | null
           completed_date?: string | null
           created_at?: string
           description?: string | null
