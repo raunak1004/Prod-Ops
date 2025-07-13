@@ -35,6 +35,7 @@ export const useSeats = () => {
           *,
           employee:employees!assigned_to(
             employee_id,
+            employee_name,
             profile:profiles!profile_id(
               full_name,
               department
@@ -46,8 +47,8 @@ export const useSeats = () => {
       if (error) throw error;
       setSeats(data || []);
     } catch (err) {
-      console.error('Error fetching seats:', err);
-      setError('Failed to fetch seats');
+      console.error('Error fetching seat data:', err);
+      setError('Unable to load seat information. Database connection failed.');
     } finally {
       setLoading(false);
     }

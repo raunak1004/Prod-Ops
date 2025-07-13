@@ -107,7 +107,7 @@ export const useProjects = () => {
       setProjects(data || []);
     } catch (err) {
       console.error('Error fetching projects:', err);
-      setError('Failed to fetch projects');
+      setError('Unable to load projects. Please check your connection and try again.');
     }
   };
 
@@ -118,8 +118,9 @@ export const useProjects = () => {
         .select(`
           *,
           assignee:employees!assigned_to(
-            profile_id,
-            profiles!profile_id(full_name, department)
+            employee_id,
+            employee_name,
+            profile:profiles!profile_id(full_name, department)
           ),
           project:projects(name)
         `)
@@ -130,16 +131,19 @@ export const useProjects = () => {
       // Transform the data to flatten the nested structure
       const transformedTasks = data?.map(task => ({
         ...task,
-        assignee: task.assignee?.profiles ? {
-          full_name: task.assignee.profiles.full_name,
-          department: task.assignee.profiles.department
+        assignee: task.assignee?.profile ? {
+          full_name: task.assignee.profile.full_name,
+          department: task.assignee.profile.department
+        } : task.assignee?.employee_name ? {
+          full_name: task.assignee.employee_name,
+          department: 'Unknown'
         } : null
       })) || [];
       
       setTasks(transformedTasks);
     } catch (err) {
-      console.error('Error fetching tasks:', err);
-      setError('Failed to fetch tasks');
+      console.error('Error fetching project tasks:', err);
+      setError('Unable to load project tasks. Please check your connection.');
     }
   };
 
@@ -150,12 +154,14 @@ export const useProjects = () => {
         .select(`
           *,
           reporter:employees!reported_by(
-            profile_id,
-            profiles!profile_id(full_name)
+            employee_id,
+            employee_name,
+            profile:profiles!profile_id(full_name)
           ),
           assignee:employees!assigned_to(
-            profile_id,
-            profiles!profile_id(full_name)
+            employee_id,
+            employee_name,
+            profile:profiles!profile_id(full_name)
           ),
           project:projects(name)
         `)
@@ -165,18 +171,22 @@ export const useProjects = () => {
       
       const transformedIssues = data?.map(issue => ({
         ...issue,
-        reporter: issue.reporter?.profiles ? {
-          full_name: issue.reporter.profiles.full_name
+        reporter: issue.reporter?.profile ? {
+          full_name: issue.reporter.profile.full_name
+        } : issue.reporter?.employee_name ? {
+          full_name: issue.reporter.employee_name
         } : null,
-        assignee: issue.assignee?.profiles ? {
-          full_name: issue.assignee.profiles.full_name
+        assignee: issue.assignee?.profile ? {
+          full_name: issue.assignee.profile.full_name
+        } : issue.assignee?.employee_name ? {
+          full_name: issue.assignee.employee_name
         } : null
       })) || [];
       
       setIssues(transformedIssues);
     } catch (err) {
-      console.error('Error fetching issues:', err);
-      setError('Failed to fetch issues');
+      console.error('Error fetching project issues:', err);
+      setError('Unable to load project issues. Database connection failed.');
     }
   };
 
@@ -187,8 +197,9 @@ export const useProjects = () => {
         .select(`
           *,
           employee:employees!responsible_employee(
-            profile_id,
-            profiles!profile_id(full_name, department)
+            employee_id,
+            employee_name,
+            profile:profiles!profile_id(full_name, department)
           ),
           project:projects(name)
         `)
@@ -198,16 +209,19 @@ export const useProjects = () => {
       
       const transformedDeliverables = data?.map(deliverable => ({
         ...deliverable,
-        employee: deliverable.employee?.profiles ? {
-          full_name: deliverable.employee.profiles.full_name,
-          department: deliverable.employee.profiles.department
+        employee: deliverable.employee?.profile ? {
+          full_name: deliverable.employee.profile.full_name,
+          department: deliverable.employee.profile.department
+        } : deliverable.employee?.employee_name ? {
+          full_name: deliverable.employee.employee_name,
+          department: 'Unknown'
         } : null
       })) || [];
       
       setDeliverables(transformedDeliverables);
     } catch (err) {
-      console.error('Error fetching deliverables:', err);
-      setError('Failed to fetch deliverables');
+      console.error('Error fetching project deliverables:', err);
+      setError('Unable to load project deliverables. Please try again.');
     }
   };
 

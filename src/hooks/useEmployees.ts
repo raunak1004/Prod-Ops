@@ -43,8 +43,8 @@ export const useEmployees = () => {
       if (error) throw error;
       setEmployees(data || []);
     } catch (err) {
-      console.error('Error fetching employees:', err);
-      setError('Failed to fetch employees');
+      console.error('Error fetching employee data:', err);
+      setError('Unable to load employee information. Please check your connection.');
     } finally {
       setLoading(false);
     }

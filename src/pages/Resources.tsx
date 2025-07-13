@@ -27,9 +27,11 @@ const Resources = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
-        <Card className="w-64">
+        <Card className="w-96">
           <CardContent className="p-6 text-center">
-            <p className="text-red-600">Error: {error}</p>
+            <h3 className="text-lg font-semibold text-red-700 mb-2">Resource Data Error</h3>
+            <p className="text-red-600 text-sm">{error}</p>
+            <p className="text-slate-600 text-xs mt-2">Please try refreshing the page or contact support if the issue persists.</p>
           </CardContent>
         </Card>
       </div>
