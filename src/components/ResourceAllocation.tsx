@@ -61,18 +61,24 @@ export const ResourceAllocation = () => {
     if (destination.droppableId.startsWith('project-')) {
       const projectId = destination.droppableId.replace('project-', '');
       const employee = transformedEmployees.find(emp => emp.id === draggableId);
-      
-      if (employee) {
-        const newAllocatedEmployee: AllocatedEmployee = {
-          ...employee,
-          allocation: 50 // Default allocation
-        };
-
-        setProjectAllocations(prev => ({
-          ...prev,
-          [projectId]: [...(prev[projectId] || []), newAllocatedEmployee]
-        }));
+      if (!employee) return;
+      const totalAllocation = getEmployeeTotalAllocation(employee.id);
+      if (totalAllocation >= 100) {
+        toast({
+          title: "Allocation Error",
+          description: `${employee.name} is already fully allocated (100%).`,
+          variant: "destructive",
+        });
+        return;
       }
+      const newAllocatedEmployee: AllocatedEmployee = {
+        ...employee,
+        allocation: 50 // Default allocation
+      };
+      setProjectAllocations(prev => ({
+        ...prev,
+        [projectId]: [...(prev[projectId] || []), newAllocatedEmployee]
+      }));
     }
   };
 
@@ -155,7 +161,7 @@ export const ResourceAllocation = () => {
         )
         .map(([projectId, projectEmployees]) => {
           const allocation = projectEmployees.find(emp => emp.id === employee.id)?.allocation || 0;
-          const project = transformedProjects.find(p => p.id.toString() === projectId);
+          const project = transformedProjects.find(p => p.id === projectId);
           
           // Count deliverables assigned to this employee
           const assignedDeliverables = 0; // This would need to be calculated from actual deliverables
@@ -244,7 +250,7 @@ export const ResourceAllocation = () => {
   }));
 
   const transformedProjects = projects.map(project => ({
-    id: Number(project.id.slice(-6)),
+    id: project.id, // Use the real UUID string from Supabase
     name: project.name,
     type: "Projects" as const,
     status: project.status as "green" | "amber" | "red",
@@ -283,7 +289,7 @@ export const ResourceAllocation = () => {
           <div className={`transition-all duration-300 overflow-y-auto ${isEmployeeListOpen ? 'flex-1' : 'w-full'}`}>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-1">
               {syncedProjects.map((project) => {
-                const status = getProjectStatus(project.id.toString());
+                const status = getProjectStatus(project.id);
                 const isReadOnly = status.isFinalized && !status.isEditing;
                 
                 return (
@@ -336,7 +342,7 @@ export const ResourceAllocation = () => {
                               {!status.isFinalized ? (
                                 <Button 
                                   size="sm" 
-                                  onClick={() => finalizeProjectAllocation(project.id.toString())}
+                                  onClick={() => finalizeProjectAllocation(project.id)}
                                   className="text-xs h-7"
                                 >
                                   <Save className="h-3 w-3 mr-1" />
@@ -346,7 +352,7 @@ export const ResourceAllocation = () => {
                                 <Button 
                                   size="sm" 
                                   variant="outline"
-                                  onClick={() => editProjectAllocation(project.id.toString())}
+                                  onClick={() => editProjectAllocation(project.id)}
                                   className="text-xs h-7"
                                 >
                                   <Edit className="h-3 w-3 mr-1" />
@@ -355,7 +361,7 @@ export const ResourceAllocation = () => {
                               ) : (
                                 <Button 
                                   size="sm" 
-                                  onClick={() => saveProjectAllocation(project.id.toString())}
+                                  onClick={() => saveProjectAllocation(project.id)}
                                   className="text-xs h-7"
                                 >
                                   <Save className="h-3 w-3 mr-1" />
@@ -397,7 +403,7 @@ export const ResourceAllocation = () => {
                                     <div className="flex items-center gap-1 shrink-0">
                                       <Select
                                         value={employee.allocation.toString()}
-                                        onValueChange={(value) => updateAllocation(project.id.toString(), employee.id, parseInt(value))}
+                                        onValueChange={(value) => updateAllocation(project.id, employee.id, parseInt(value))}
                                         disabled={isReadOnly}
                                       >
                                         <SelectTrigger className="w-16 h-6 text-xs">
@@ -414,7 +420,7 @@ export const ResourceAllocation = () => {
                                       
                                       {!isReadOnly && (
                                         <button
-                                          onClick={() => removeEmployeeFromProject(project.id.toString(), employee.id)}
+                                          onClick={() => removeEmployeeFromProject(project.id, employee.id)}
                                           className="text-muted-foreground hover:text-destructive p-0.5 shrink-0"
                                         >
                                           <Trash2 className="h-3 w-3" />
@@ -462,17 +468,22 @@ export const ResourceAllocation = () => {
                   >
                     {transformedEmployees.map((employee, index) => {
                       const IconComponent = getDepartmentIcon(employee.department);
+                      const totalAllocation = getEmployeeTotalAllocation(employee.id);
+                      const isFullyAllocated = totalAllocation >= 100;
                       
                       return (
-                        <Draggable key={employee.id} draggableId={employee.id} index={index}>
+                        <Draggable key={employee.id} draggableId={employee.id} index={index} isDragDisabled={isFullyAllocated}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={`p-2 bg-background border rounded-md cursor-grab active:cursor-grabbing transition-all ${
-                                snapshot.isDragging ? 'shadow-lg scale-105 rotate-2' : 'hover:shadow-md'
-                              }`}
+                              {...(!isFullyAllocated ? provided.dragHandleProps : {})}
+                              className={`p-2 bg-background border rounded-md transition-all ${
+                                isFullyAllocated
+                                  ? 'opacity-50 cursor-not-allowed bg-slate-100 border-slate-200'
+                                  : 'cursor-grab active:cursor-grabbing hover:shadow-md'
+                              } ${snapshot.isDragging ? 'shadow-lg scale-105 rotate-2' : ''}`}
+                              aria-disabled={isFullyAllocated}
                             >
                               <div className="flex items-center gap-2">
                                 <Avatar className="h-8 w-8 shrink-0">
@@ -480,7 +491,6 @@ export const ResourceAllocation = () => {
                                     {getInitials(employee.name)}
                                   </AvatarFallback>
                                 </Avatar>
-                                
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1 mb-1">
                                     <h4 className="font-medium text-xs truncate">{employee.name}</h4>
@@ -499,7 +509,13 @@ export const ResourceAllocation = () => {
                                       </Badge>
                                     )}
                                   </div>
+                                  {isFullyAllocated && (
+                                    <span className="text-xs text-red-500 font-semibold block mt-1">Fully Allocated</span>
+                                  )}
                                 </div>
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Allocation: {totalAllocation}%
                               </div>
                             </div>
                           )}

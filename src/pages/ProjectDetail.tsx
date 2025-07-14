@@ -77,13 +77,18 @@ const ProjectDetail: React.FC = () => {
     switch (dbStatus?.toLowerCase()) {
       case 'active':
       case 'completed':
+      case 'green':
         return 'green';
       case 'planning':
       case 'pending':
+      case 'amber':
         return 'amber';
       case 'on-hold':
       case 'cancelled':
+      case 'red':
         return 'red';
+      case 'not-started':
+        return 'not-started';
       default:
         return 'not-started';
     }

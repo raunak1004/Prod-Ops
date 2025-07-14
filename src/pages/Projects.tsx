@@ -24,13 +24,18 @@ const Projects = () => {
     switch (dbStatus?.toLowerCase()) {
       case 'active':
       case 'completed':
+      case 'green':
         return 'green';
       case 'planning':
       case 'pending':
+      case 'amber':
         return 'amber';
       case 'on-hold':
       case 'cancelled':
+      case 'red':
         return 'red';
+      case 'not-started':
+        return 'not-started';
       default:
         return 'not-started';
     }
@@ -38,14 +43,19 @@ const Projects = () => {
 
   // Transform projects to match the legacy format for ProjectCard component
   const transformedProjects = React.useMemo(() => projects.map(project => {
-    // Calculate deliverables for this project
-    const projectDeliverables = deliverables.filter(d => d.project_id === project.id);
+    // Get current month and year
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    // Calculate deliverables for this project for the current month only
+    const projectDeliverables = deliverables.filter(d => d.project_id === project.id && d.due_date && new Date(d.due_date).getMonth() === currentMonth && new Date(d.due_date).getFullYear() === currentYear);
     const completedDeliverables = projectDeliverables.filter(d => 
       d.status === 'completed' || d.status === 'done'
     ).length;
     const totalDeliverables = projectDeliverables.length;
     
-    // Calculate progress as percentage of completed deliverables
+    // Calculate progress as percentage of completed deliverables for current month
     const progressPercentage = totalDeliverables > 0 ? 
       Math.round((completedDeliverables / totalDeliverables) * 100) : 0;
 
