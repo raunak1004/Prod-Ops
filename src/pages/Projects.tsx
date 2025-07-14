@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 
 const Projects = () => {
   const [filters, setFilters] = useState({ status: 'all', type: 'all', assignee: '', department: 'all' });
-  const { projects, loading, error, updateProjectStatus } = useProjects();
+  const { projects, loading, error, updateProjectStatus, deliverables } = useProjects();
 
   const handleStatusUpdate = async (projectId: string, statusType: 'status', newStatus: string) => {
     try {
@@ -17,30 +17,60 @@ const Projects = () => {
     }
   };
   
+  // Map status from DB to UI values
+  const mapStatusToUIStatus = (dbStatus: string): "green" | "amber" | "red" | "not-started" => {
+    switch (dbStatus?.toLowerCase()) {
+      case 'active':
+      case 'completed':
+        return 'green';
+      case 'planning':
+      case 'pending':
+        return 'amber';
+      case 'on-hold':
+      case 'cancelled':
+        return 'red';
+      default:
+        return 'not-started';
+    }
+  };
+
   // Transform projects to match the legacy format for ProjectCard component
-  const transformedProjects = projects.map(project => ({
-    id: project.id, // Use full UUID instead of converting to number
-    originalId: project.id, // Keep original ID for navigation
-    name: project.name,
-    type: "Projects" as const,
-    status: project.status as "green" | "amber" | "red",
-    progress: project.progress,
-    dueDate: project.end_date || '',
-    department: project.manager?.department || 'Unknown',
-    lead: project.manager?.full_name || 'Unassigned',
-    deliverables: 0, // These would need to be calculated from deliverables table
-    completedDeliverables: 0,
-    blockers: 0, // These would need to be calculated from issues table
-    teamSize: 0, // This would need to be calculated from task assignments
-    hoursAllocated: 0,
-    hoursUsed: 0,
-    lastCallDate: '',
-    pmStatus: project.status as "green" | "amber" | "red",
-    opsStatus: project.status as "green" | "amber" | "red",
-    healthTrend: "constant" as const,
-    monthlyDeliverables: [],
-    pastWeeksStatus: []
-  }));
+  const transformedProjects = projects.map(project => {
+    // Calculate deliverables for this project
+    const projectDeliverables = deliverables.filter(d => d.project_id === project.id);
+    const completedDeliverables = projectDeliverables.filter(d => 
+      d.status === 'completed' || d.status === 'done'
+    ).length;
+    const totalDeliverables = projectDeliverables.length;
+    
+    // Calculate progress as percentage of completed deliverables
+    const progressPercentage = totalDeliverables > 0 ? 
+      Math.round((completedDeliverables / totalDeliverables) * 100) : 0;
+
+    return {
+      id: project.id, // Use full UUID instead of converting to number
+      originalId: project.id, // Keep original ID for navigation
+      name: project.name,
+      type: "Projects" as const,
+      status: mapStatusToUIStatus(project.status),
+      progress: progressPercentage,
+      dueDate: project.end_date || '',
+      department: project.manager?.department || 'Unknown',
+      lead: project.manager?.full_name || 'Unassigned',
+      deliverables: totalDeliverables,
+      completedDeliverables: completedDeliverables,
+      blockers: 0, // These would need to be calculated from issues table
+      teamSize: 0, // This would need to be calculated from task assignments
+      hoursAllocated: 0,
+      hoursUsed: 0,
+      lastCallDate: new Date(project.updated_at).toISOString().split('T')[0],
+      pmStatus: mapStatusToUIStatus(project.status),
+      opsStatus: mapStatusToUIStatus(project.status),
+      healthTrend: "constant" as const,
+      monthlyDeliverables: [],
+      pastWeeksStatus: []
+    };
+  });
   
   // Filter projects based on filters
   const filteredProjects = transformedProjects.filter(project => {

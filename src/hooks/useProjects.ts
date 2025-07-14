@@ -96,13 +96,32 @@ export const useProjects = () => {
 
   const fetchProjects = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setProjects(data || []);
+      if (projectsError) throw projectsError;
+
+      // Fetch manager details for each project
+      const projectsWithManagers = await Promise.all(
+        (projectsData || []).map(async (project) => {
+          if (project.manager_id) {
+            const { data: managerData, error: managerError } = await supabase
+              .from('employees')
+              .select('full_name, department')
+              .eq('id', project.manager_id)
+              .single();
+            
+            if (!managerError && managerData) {
+              return { ...project, manager: managerData };
+            }
+          }
+          return { ...project, manager: null };
+        })
+      );
+
+      setProjects(projectsWithManagers);
     } catch (err) {
       console.error('Error fetching projects:', err);
       setError('Unable to load projects. Please check your connection and try again.');
