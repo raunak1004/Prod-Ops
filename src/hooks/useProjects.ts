@@ -6,6 +6,8 @@ export interface Project {
   name: string;
   description?: string;
   status: string;
+  pm_status: string;
+  ops_status: string;
   priority: string;
   start_date?: string;
   end_date?: string;
@@ -173,11 +175,12 @@ export const useProjects = () => {
     }
   };
 
-  const updateProjectStatus = async (projectId: string, status: string) => {
+  const updateProjectStatus = async (projectId: string, status: string, statusType: 'status' | 'pm_status' | 'ops_status' = 'status') => {
     try {
+      const updateData = { [statusType]: status };
       const { error } = await supabase
         .from('projects')
-        .update({ status })
+        .update(updateData)
         .eq('id', projectId);
 
       if (error) throw error;
@@ -185,7 +188,7 @@ export const useProjects = () => {
       // Update local state
       setProjects(prev => 
         prev.map(project => 
-          project.id === projectId ? { ...project, status } : project
+          project.id === projectId ? { ...project, [statusType]: status } : project
         )
       );
     } catch (err) {

@@ -105,8 +105,8 @@ const ProjectDetail: React.FC = () => {
     hoursAllocated: 0,
     hoursUsed: 0,
     lastCallDate: currentProject.created_at.split('T')[0],
-    pmStatus: mapStatusToUIStatus(currentProject.status),
-    opsStatus: mapStatusToUIStatus(currentProject.status),
+    pmStatus: mapStatusToUIStatus(currentProject.pm_status || currentProject.status),
+    opsStatus: mapStatusToUIStatus(currentProject.ops_status || currentProject.status),
     healthTrend: "constant" as const,
     monthlyDeliverables: deliverables
       .filter(d => d.project_id === currentProject.id)
@@ -177,9 +177,33 @@ const ProjectDetail: React.FC = () => {
     navigate('/?tab=projects');
   };
 
-  const handleStatusUpdate = (statusType: 'pmStatus' | 'opsStatus', newStatus: string) => {
-    // This would need to update the project status in Supabase
-    console.log('Update status:', statusType, newStatus);
+  const handleStatusUpdate = async (statusType: 'pmStatus' | 'opsStatus', newStatus: string) => {
+    if (!currentProject?.id) return;
+    
+    try {
+      const dbField = statusType === 'pmStatus' ? 'pm_status' : 'ops_status';
+      const { error } = await supabase
+        .from('projects')
+        .update({ [dbField]: newStatus })
+        .eq('id', currentProject.id);
+
+      if (error) {
+        console.error('Error updating project status:', error);
+        toast({
+          title: "Error",
+          description: "Failed to update status. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: `${statusType === 'pmStatus' ? 'PM' : 'Ops'} status updated successfully!`
+        });
+        refetch(); // Refresh the data
+      }
+    } catch (error) {
+      console.error('Error updating project status:', error);
+    }
   };
 
   const handleWeeklyStatusAdd = async (weekStatus: { week: string; status: 'red' | 'amber' | 'green' | 'not-started' }) => {

@@ -64,8 +64,8 @@ const Projects = () => {
       hoursAllocated: 0,
       hoursUsed: 0,
       lastCallDate: new Date(project.updated_at).toISOString().split('T')[0],
-      pmStatus: mapStatusToUIStatus(project.status),
-      opsStatus: mapStatusToUIStatus(project.status),
+      pmStatus: mapStatusToUIStatus(project.pm_status),
+      opsStatus: mapStatusToUIStatus(project.ops_status),
       healthTrend: "constant" as const,
       monthlyDeliverables: [],
       pastWeeksStatus: []

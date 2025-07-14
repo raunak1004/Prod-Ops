@@ -183,6 +183,8 @@ export type Database = {
           id: string
           manager_id: string | null
           name: string
+          ops_status: string | null
+          pm_status: string | null
           priority: string | null
           progress: number | null
           start_date: string | null
@@ -197,6 +199,8 @@ export type Database = {
           id?: string
           manager_id?: string | null
           name: string
+          ops_status?: string | null
+          pm_status?: string | null
           priority?: string | null
           progress?: number | null
           start_date?: string | null
@@ -211,6 +215,8 @@ export type Database = {
           id?: string
           manager_id?: string | null
           name?: string
+          ops_status?: string | null
+          pm_status?: string | null
           priority?: string | null
           progress?: number | null
           start_date?: string | null
