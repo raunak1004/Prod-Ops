@@ -351,6 +351,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      },
+      allocations: {
+        Row: {
+          id: string;
+          project_id: string;
+          employee_id: string;
+          allocation: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          project_id: string;
+          employee_id: string;
+          allocation: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          employee_id?: string;
+          allocation?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "allocations_project_id_fkey",
+            columns: ["project_id"],
+            isOneToOne: false,
+            referencedRelation: "projects",
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "allocations_employee_id_fkey",
+            columns: ["employee_id"],
+            isOneToOne: false,
+            referencedRelation: "employees",
+            referencedColumns: ["id"]
+          }
+        ];
       }
     }
     Views: {

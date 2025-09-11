@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Search, Users, Mail, Phone, Loader2, Plus } from "lucide-react";
+import { Search, Users, Mail, Phone, Loader2, Plus, Trash2, Edit2 } from "lucide-react";
 import { useEmployees } from "@/hooks/useEmployees";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,25 @@ export const EmployeesList = () => {
     salary: '',
     skills: ''
   });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editEmployee, setEditEmployee] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [allocations, setAllocations] = useState([]);
+
+  // Fetch allocations from Supabase
+  React.useEffect(() => {
+    const fetchAllocations = async () => {
+      const { data, error } = await supabase.from('allocations').select('*');
+      if (!error && data) setAllocations(data);
+    };
+    fetchAllocations();
+  }, []);
+
+  // Helper to get live utilization for an employee
+  const getEmployeeUtilization = (employeeId) => {
+    return allocations.filter(a => a.employee_id === employeeId).reduce((sum, a) => sum + a.allocation, 0);
+  };
 
   if (loading) {
     return (
@@ -120,6 +139,72 @@ export const EmployeesList = () => {
       });
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleEditEmployee = (employee) => {
+    setEditEmployee({
+      ...employee,
+      name: employee.full_name,
+      salary: employee.salary?.toString() || '',
+      skills: employee.skills?.join(', ') || ''
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdateEmployee = async () => {
+    if (!editEmployee.name || !editEmployee.position || !editEmployee.department) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in name, position, and department.",
+        variant: "destructive"
+      });
+      return;
+    }
+    setIsEditing(true);
+    try {
+      const { error } = await supabase
+        .from('employees')
+        .update({
+          full_name: editEmployee.name,
+          email: editEmployee.email,
+          position: editEmployee.position,
+          department: editEmployee.department,
+          salary: editEmployee.salary ? parseFloat(editEmployee.salary) : null,
+          skills: editEmployee.skills ? editEmployee.skills.split(',').map(s => s.trim()) : [],
+          status: editEmployee.status,
+          utilization_rate: editEmployee.utilization_rate || 0,
+          avatar_url: editEmployee.avatar_url,
+          hire_date: editEmployee.hire_date,
+          employee_id: editEmployee.employee_id,
+          role: editEmployee.role,
+          user_id: editEmployee.user_id
+        })
+        .eq('id', editEmployee.id);
+      if (error) throw error;
+      toast({ title: "Employee Updated", description: `${editEmployee.name} has been updated.` });
+      setIsEditDialogOpen(false);
+      setEditEmployee(null);
+      refetch();
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to update employee.", variant: "destructive" });
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (employeeId) => {
+    if (!window.confirm('Are you sure you want to delete this employee?')) return;
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.from('employees').delete().eq('id', employeeId);
+      if (error) throw error;
+      toast({ title: "Employee Deleted", description: "Employee has been removed." });
+      refetch();
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to delete employee.", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -285,6 +370,8 @@ export const EmployeesList = () => {
                 <Badge variant={employee.status === "active" ? "default" : "secondary"}>
                   {employee.status}
                 </Badge>
+                <Button size="icon" variant="ghost" onClick={() => handleEditEmployee(employee)}><Edit2 className="w-4 h-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => handleDeleteEmployee(employee.id)} disabled={isDeleting}><Trash2 className="w-4 h-4 text-red-500" /></Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -317,12 +404,12 @@ export const EmployeesList = () => {
               <div className="pt-2 border-t">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm text-muted-foreground">Utilization</span>
-                  <span className="text-sm font-medium">{employee.utilization_rate}%</span>
+                  <span className="text-sm font-medium">{getEmployeeUtilization(employee.id)}%</span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2">
                   <div
                     className="bg-primary h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${employee.utilization_rate}%` }}
+                    style={{ width: `${getEmployeeUtilization(employee.id)}%` }}
                   />
                 </div>
               </div>
@@ -338,6 +425,80 @@ export const EmployeesList = () => {
           <p className="mt-1 text-sm text-slate-500">Try adjusting your search or filter criteria.</p>
         </div>
       )}
+
+      {/* Edit Employee Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Employee</DialogTitle>
+          </DialogHeader>
+          {editEmployee && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Full Name *</Label>
+                <Input id="edit-name" value={editEmployee.name} onChange={e => setEditEmployee({ ...editEmployee, name: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input id="edit-email" value={editEmployee.email || ''} onChange={e => setEditEmployee({ ...editEmployee, email: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-position">Position *</Label>
+                <Input id="edit-position" value={editEmployee.position || ''} onChange={e => setEditEmployee({ ...editEmployee, position: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-department">Department *</Label>
+                <Input id="edit-department" value={editEmployee.department || ''} onChange={e => setEditEmployee({ ...editEmployee, department: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-salary">Salary</Label>
+                <Input id="edit-salary" type="number" value={editEmployee.salary || ''} onChange={e => setEditEmployee({ ...editEmployee, salary: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-skills">Skills</Label>
+                <Input id="edit-skills" value={editEmployee.skills || ''} onChange={e => setEditEmployee({ ...editEmployee, skills: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-status">Status</Label>
+                <Input id="edit-status" value={editEmployee.status || ''} onChange={e => setEditEmployee({ ...editEmployee, status: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-utilization">Utilization Rate</Label>
+                <Input id="edit-utilization" type="number" value={editEmployee.utilization_rate || 0} onChange={e => setEditEmployee({ ...editEmployee, utilization_rate: Number(e.target.value) })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-avatar">Avatar URL</Label>
+                <Input id="edit-avatar" value={editEmployee.avatar_url || ''} onChange={e => setEditEmployee({ ...editEmployee, avatar_url: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-hire-date">Hire Date</Label>
+                <Input id="edit-hire-date" type="date" value={editEmployee.hire_date || ''} onChange={e => setEditEmployee({ ...editEmployee, hire_date: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-employee-id">Employee ID</Label>
+                <Input id="edit-employee-id" value={editEmployee.employee_id || ''} onChange={e => setEditEmployee({ ...editEmployee, employee_id: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-role">Role</Label>
+                <Input id="edit-role" value={editEmployee.role || ''} onChange={e => setEditEmployee({ ...editEmployee, role: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="edit-user-id">User ID</Label>
+                <Input id="edit-user-id" value={editEmployee.user_id || ''} onChange={e => setEditEmployee({ ...editEmployee, user_id: e.target.value })} />
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={handleUpdateEmployee} disabled={isEditing} className="flex-1">
+                  {isEditing && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Save Changes
+                </Button>
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isEditing}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

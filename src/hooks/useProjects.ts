@@ -197,16 +197,71 @@ export const useProjects = () => {
     }
   };
 
+  // Add a new project/product
+  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'updated_at' | 'manager'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .insert([projectData])
+        .select('*')
+        .single();
+      if (error) throw error;
+      setProjects(prev => [data, ...prev]);
+      return data;
+    } catch (err) {
+      console.error('Error adding project:', err);
+      throw err;
+    }
+  };
+
+  // Edit (update) an existing project/product
+  const editProject = async (projectId: string, updates: Partial<Project>) => {
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', projectId)
+        .select('*')
+        .single();
+      if (error) throw error;
+      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
+      return data;
+    } catch (err) {
+      console.error('Error editing project:', err);
+      throw err;
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([
-        fetchProjects(),
-        fetchTasks(),
-        fetchIssues(),
-        fetchDeliverables()
-      ]);
-      setLoading(false);
+      setError(null); // Clear any previous errors
+      
+      try {
+        // Load all data in parallel, but handle each fetch independently
+        const results = await Promise.allSettled([
+          fetchProjects(),
+          fetchTasks(),
+          fetchIssues(),
+          fetchDeliverables()
+        ]);
+        
+        // Check if any failed and set appropriate error message
+        const failedFetches = results.filter(result => result.status === 'rejected');
+        if (failedFetches.length > 0) {
+          const firstError = failedFetches[0];
+          if (firstError.status === 'rejected' && firstError.reason instanceof Error) {
+            setError(firstError.reason.message);
+          } else {
+            setError('Some data failed to load. Please refresh the page to try again.');
+          }
+        }
+      } catch (err) {
+        console.error('Unexpected error during data loading:', err);
+        setError('An unexpected error occurred. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadData();
@@ -225,6 +280,8 @@ export const useProjects = () => {
       fetchIssues();
       fetchDeliverables();
     },
-    updateProjectStatus
+    updateProjectStatus,
+    addProject,
+    editProject
   };
 };

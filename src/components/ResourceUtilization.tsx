@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertTriangle, TrendingUp, TrendingDown, Clock } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { useEmployees } from "@/hooks/useEmployees";
+import { supabase } from '@/integrations/supabase/client';
 
 interface Project {
   id: number;
@@ -29,114 +30,43 @@ interface Project {
   healthTrend: "improving" | "declining" | "constant";
 }
 
-const employeeUtilizationData = [
-  {
-    id: 1,
-    name: "Alex Thompson",
-    role: "Developer",
-    totalHours: 45,
-    allocatedHours: 40,
-    utilizationRate: 112.5,
-    status: "overworked",
-    projects: [
-      { name: "Phoenix CRM", hours: 25, type: "project" },
-      { name: "DataSync Pro", hours: 20, type: "product" }
-    ]
-  },
-  {
-    id: 2,
-    name: "Sarah Chen",
-    role: "Developer",
-    totalHours: 25,
-    allocatedHours: 40,
-    utilizationRate: 62.5,
-    status: "underworked",
-    projects: [
-      { name: "Phoenix CRM", hours: 15, type: "project" },
-      { name: "Available for assignment", hours: 10, type: "available" }
-    ]
-  },
-  {
-    id: 3,
-    name: "Emma Wilson",
-    role: "Designer",
-    totalHours: 48,
-    allocatedHours: 40,
-    utilizationRate: 120,
-    status: "overworked",
-    projects: [
-      { name: "Phoenix CRM", hours: 20, type: "project" },
-      { name: "CloudVault Enterprise", hours: 18, type: "product" },
-      { name: "DataSync Pro", hours: 10, type: "product" }
-    ]
-  },
-  {
-    id: 4,
-    name: "Mike Rodriguez",
-    role: "Developer",
-    totalHours: 38,
-    allocatedHours: 40,
-    utilizationRate: 95,
-    status: "optimal",
-    projects: [
-      { name: "CloudVault Enterprise", hours: 25, type: "product" },
-      { name: "Internal Tools", hours: 13, type: "internal" }
-    ]
-  },
-  {
-    id: 5,
-    name: "Lisa Anderson",
-    role: "QA",
-    totalHours: 30,
-    allocatedHours: 40,
-    utilizationRate: 75,
-    status: "underworked",
-    projects: [
-      { name: "Phoenix CRM", hours: 15, type: "project" },
-      { name: "DataSync Pro", hours: 15, type: "product" }
-    ]
-  },
-  {
-    id: 6,
-    name: "Rachel Green",
-    role: "PM",
-    totalHours: 42,
-    allocatedHours: 40,
-    utilizationRate: 105,
-    status: "optimal",
-    projects: [
-      { name: "Phoenix CRM", hours: 20, type: "project" },
-      { name: "CloudVault Enterprise", hours: 22, type: "product" }
-    ]
-  },
-];
-
 export const ResourceUtilization = () => {
   const { projects, loading: projectsLoading } = useProjects();
   const { employees, loading: employeesLoading } = useEmployees();
   const [filterStatus, setFilterStatus] = useState("all");
+  const [allocations, setAllocations] = useState<any[]>([]);
 
-  // Transform Supabase projects to legacy format
-  const transformedProjects: Project[] = projects.map(project => ({
-    id: Number(project.id.slice(-6)),
-    name: project.name,
-    type: "Projects" as const,
-    status: project.status as "green" | "amber" | "red",
-    progress: project.progress,
-    dueDate: project.end_date || '',
-    department: project.manager?.department || 'Unknown',
-    lead: project.manager?.full_name || 'Unassigned',
-    deliverables: 0,
-    completedDeliverables: 0,
-    blockers: 0,
-    teamSize: 0,
-    hoursAllocated: 0,
-    hoursUsed: 0,
-    lastCallDate: '',
-    pmStatus: project.status as "green" | "amber" | "red",
-    opsStatus: project.status as "green" | "amber" | "red",
-    healthTrend: "constant" as const
-  }));
+  // Fetch allocations from Supabase
+  React.useEffect(() => {
+    const fetchAllocations = async () => {
+      const { data, error } = await supabase.from('allocations').select('*');
+      if (!error && data) setAllocations(data);
+    };
+    fetchAllocations();
+  }, []);
+
+  // Calculate utilization for each employee
+  const employeeUtilizationData = employees.map(emp => {
+    const empAllocations = allocations.filter(a => a.employee_id === emp.id);
+    const totalAllocation = empAllocations.reduce((sum, a) => sum + a.allocation, 0);
+    let status = 'optimal';
+    if (totalAllocation > 100) status = 'overworked';
+    else if (totalAllocation < 60) status = 'underworked';
+    return {
+      id: emp.id,
+      name: emp.full_name,
+      role: emp.position,
+      totalAllocation,
+      status,
+      projects: empAllocations.map(a => {
+        const project = projects.find(p => p.id === a.project_id);
+        return {
+          name: project?.name || 'Unknown',
+          allocation: a.allocation
+        };
+      })
+    };
+  });
 
   const filteredEmployees = employeeUtilizationData.filter(employee => {
     if (filterStatus === "all") return true;
@@ -221,7 +151,7 @@ export const ResourceUtilization = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900">
-              {Math.round(employeeUtilizationData.reduce((sum, emp) => sum + emp.utilizationRate, 0) / employeeUtilizationData.length)}%
+              {Math.round(employeeUtilizationData.reduce((sum, emp) => sum + emp.totalAllocation, 0) / employeeUtilizationData.length)}%
             </div>
             <p className="text-xs text-slate-600 mt-1">Team average</p>
           </CardContent>
@@ -270,12 +200,12 @@ export const ResourceUtilization = () => {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Utilization Rate</span>
-                  <span className="font-medium">{employee.utilizationRate}%</span>
+                  <span className="font-medium">{employee.totalAllocation}%</span>
                 </div>
-                <Progress value={Math.min(employee.utilizationRate, 150)} className="h-2" />
+                <Progress value={Math.min(employee.totalAllocation, 150)} className="h-2" />
                 <div className="flex justify-between text-xs text-slate-500 mt-1">
-                  <span>{employee.totalHours}h used</span>
-                  <span>{employee.allocatedHours}h allocated</span>
+                  <span>{employee.totalAllocation}h used</span>
+                  <span>100h allocated</span>
                 </div>
               </div>
 
@@ -284,13 +214,13 @@ export const ResourceUtilization = () => {
                 <div className="space-y-2">
                   {employee.projects.map((project, index) => (
                     <div key={index} className="flex justify-between items-center text-sm">
-                      <span className={`${project.type === 'available' ? 'text-amber-600' : 'text-slate-600'}`}>
+                      <span className={`${project.name === 'Unknown' ? 'text-amber-600' : 'text-slate-600'}`}>
                         {project.name}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-500">{project.hours}h</span>
+                        <span className="text-slate-500">{project.allocation}h</span>
                         <Badge variant="outline" className="text-xs">
-                          {project.type}
+                          Allocation
                         </Badge>
                       </div>
                     </div>

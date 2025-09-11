@@ -46,10 +46,17 @@ const ProjectDetail: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
   const [weeklyStatuses, setWeeklyStatuses] = useState<any[]>([]);
+  const [lastCallDate, setLastCallDate] = useState<Date | null>(null);
   const { toast } = useToast();
   
   // Find project from Supabase data using full UUID
   const currentProject = projects.find(p => p.id === id);
+
+  useEffect(() => {
+    if ((currentProject as any)?.last_call_date) {
+      setLastCallDate(new Date((currentProject as any).last_call_date));
+    }
+  }, [currentProject]);
   
   // Fetch weekly statuses for this project
   React.useEffect(() => {
@@ -109,7 +116,7 @@ const ProjectDetail: React.FC = () => {
     teamSize: 0,
     hoursAllocated: 0,
     hoursUsed: 0,
-    lastCallDate: currentProject.created_at.split('T')[0],
+    lastCallDate: lastCallDate,
     pmStatus: mapStatusToUIStatus(currentProject.pm_status || currentProject.status),
     opsStatus: mapStatusToUIStatus(currentProject.ops_status || currentProject.status),
     healthTrend: "constant" as const,
@@ -312,9 +319,34 @@ const ProjectDetail: React.FC = () => {
     console.log('Update lead:', newLead);
   };
 
-  const handleLastCallDateUpdate = (date: Date) => {
-    // This would need to update the project in Supabase
-    console.log('Update last call date:', date);
+  const handleLastCallDateUpdate = async (date: Date) => {
+    if (!currentProject?.id) return;
+    setLastCallDate(date);
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ last_call_date: date.toISOString().split('T')[0] } as any)
+        .eq('id', currentProject.id);
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to update last call date. Please try again.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Last call date updated!"
+        });
+        refetch();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update last call date. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
   
   if (loading) {
@@ -364,7 +396,7 @@ const ProjectDetail: React.FC = () => {
       case 'resource':
         return <ResourceOverview projects={[project]} />;
       case 'escalation':
-        return <IssuesTracker projects={[project]} />;
+        return <IssuesTracker projects={[project]} defaultProjectId={project.id} />;
       default:
         return null;
     }
@@ -389,7 +421,7 @@ const ProjectDetail: React.FC = () => {
         <ProjectHeader 
           project={{
             ...project,
-            lastCallDate: new Date(project.lastCallDate)
+            lastCallDate: lastCallDate
           }} 
           onStatusUpdate={handleStatusUpdate}
           onWeeklyStatusAdd={handleWeeklyStatusAdd}

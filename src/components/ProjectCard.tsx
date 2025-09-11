@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, Users, AlertTriangle, Clock, Phone } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useNavigate } from "react-router-dom";
+import { ProjectTag } from "@/components/ProjectTag";
 
 interface Project {
   id: string; // Changed from number to string to support UUIDs
@@ -95,7 +96,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdat
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-lg font-semibold text-slate-900">{project.name}</CardTitle>
+            <ProjectTag id={project.id} name={project.name} className="h-7 px-3" />
             <Badge variant="outline" className="text-xs">{project.department}</Badge>
           </div>
           <Select 

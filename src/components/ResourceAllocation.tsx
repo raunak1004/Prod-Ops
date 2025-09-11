@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { useProjects } from "@/hooks/useProjects";
 import { useEmployees } from "@/hooks/useEmployees";
+import { supabase } from '@/integrations/supabase/client';
 
 interface Employee {
   id: string;
@@ -43,6 +44,40 @@ export const ResourceAllocation = () => {
   const [projectStatus, setProjectStatus] = useState<ProjectStatus>({});
   const [isEmployeeListOpen, setIsEmployeeListOpen] = useState(false);
 
+  // Add this hook to fetch allocations from Supabase on mount
+  React.useEffect(() => {
+    const fetchAllocations = async () => {
+      const { data, error } = await supabase.from('allocations').select('*');
+      if (!error && data) {
+        // Convert DB rows to { [projectId]: AllocatedEmployee[] }
+        const allocationsByProject = {};
+        data.forEach(row => {
+          if (!allocationsByProject[row.project_id]) allocationsByProject[row.project_id] = [];
+          const emp = transformedEmployees.find(e => e.id === row.employee_id);
+          if (emp) {
+            allocationsByProject[row.project_id].push({ ...emp, allocation: row.allocation });
+          }
+        });
+        setProjectAllocations(allocationsByProject);
+      }
+    };
+    fetchAllocations();
+  }, [employees]);
+
+  // Place the function here so it has access to hooks
+  const removeEmployeeFromProject = async (projectId: string, employeeId: string) => {
+    // Remove from Supabase
+    await supabase.from('allocations')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('employee_id', employeeId);
+    // Remove from local state
+    setProjectAllocations(prev => ({
+      ...prev,
+      [projectId]: prev[projectId]?.filter(emp => emp.id !== employeeId) || []
+    }));
+  };
+
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   };
@@ -71,14 +106,14 @@ export const ResourceAllocation = () => {
         });
         return;
       }
-      const newAllocatedEmployee: AllocatedEmployee = {
-        ...employee,
-        allocation: 50 // Default allocation
-      };
-      setProjectAllocations(prev => ({
-        ...prev,
-        [projectId]: [...(prev[projectId] || []), newAllocatedEmployee]
-      }));
+        const newAllocatedEmployee: AllocatedEmployee = {
+          ...employee,
+          allocation: 50 // Default allocation
+        };
+        setProjectAllocations(prev => ({
+          ...prev,
+          [projectId]: [...(prev[projectId] || []), newAllocatedEmployee]
+        }));
     }
   };
 
@@ -117,14 +152,17 @@ export const ResourceAllocation = () => {
     }));
   };
 
-  const removeEmployeeFromProject = (projectId: string, employeeId: string) => {
-    setProjectAllocations(prev => ({
-      ...prev,
-      [projectId]: prev[projectId]?.filter(emp => emp.id !== employeeId) || []
-    }));
-  };
-
-  const finalizeProjectAllocation = (projectId: string) => {
+  // Replace finalizeProjectAllocation to persist to Supabase
+  const finalizeProjectAllocation = async (projectId: string) => {
+    const allocations = projectAllocations[projectId] || [];
+    // Upsert all allocations for this project
+    for (const emp of allocations) {
+      await supabase.from('allocations').upsert({
+        project_id: projectId,
+        employee_id: emp.id,
+        allocation: emp.allocation
+      }, { onConflict: 'project_id,employee_id' });
+    }
     setProjectStatus(prev => ({
       ...prev,
       [projectId]: { isFinalized: true, isEditing: false }
@@ -138,7 +176,16 @@ export const ResourceAllocation = () => {
     }));
   };
 
-  const saveProjectAllocation = (projectId: string) => {
+  // Optionally, update saveProjectAllocation to upsert as well
+  const saveProjectAllocation = async (projectId: string) => {
+    const allocations = projectAllocations[projectId] || [];
+    for (const emp of allocations) {
+      await supabase.from('allocations').upsert({
+        project_id: projectId,
+        employee_id: emp.id,
+        allocation: emp.allocation
+      }, { onConflict: 'project_id,employee_id' });
+    }
     setProjectStatus(prev => ({
       ...prev,
       [projectId]: { isFinalized: true, isEditing: false }

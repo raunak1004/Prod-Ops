@@ -3,10 +3,16 @@ import { IssuesTracker } from "@/components/IssuesTracker";
 import { useProjects } from "@/hooks/useProjects";
 
 const Escalation = () => {
-  const { projects, loading } = useProjects();
+  const { projects, loading, deliverables, issues } = useProjects();
 
   // Transform projects to match the legacy format for IssuesTracker component
-  const transformedProjects = projects.map(project => ({
+  const transformedProjects = projects.map(project => {
+    const projectDeliverables = deliverables.filter(d => d.project_id === project.id);
+    const completedDeliverables = projectDeliverables.filter(d => d.status === 'completed' || d.status === 'done').length;
+    const totalDeliverables = projectDeliverables.length;
+    const projectBlockers = issues.filter(i => i.project_id === project.id && i.status === 'open' && i.severity === 'high').length;
+    const teamSize = new Set(projectDeliverables.map(d => d.assignee_name)).size;
+    return {
     id: project.id, // Use full UUID
     name: project.name,
     type: "Projects" as const,
@@ -15,10 +21,10 @@ const Escalation = () => {
     dueDate: project.end_date || '',
     department: project.manager?.department || 'Unknown',
     lead: project.manager?.full_name || 'Unassigned',
-    deliverables: 0,
-    completedDeliverables: 0,
-    blockers: 0,
-    teamSize: 0,
+      deliverables: totalDeliverables,
+      completedDeliverables: completedDeliverables,
+      blockers: projectBlockers,
+      teamSize: teamSize,
     hoursAllocated: 0,
     hoursUsed: 0,
     lastCallDate: '',
@@ -27,7 +33,8 @@ const Escalation = () => {
     healthTrend: "constant" as const,
     monthlyDeliverables: [],
     pastWeeksStatus: []
-  }));
+    };
+  });
 
   if (loading) {
     return (

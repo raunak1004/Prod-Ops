@@ -3,11 +3,44 @@ import { ProjectCard } from "@/components/ProjectCard";
 import { TaskFilters } from "@/components/TaskFilters";
 import { useProjects } from "@/hooks/useProjects";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const Projects = () => {
   const [filters, setFilters] = useState({ status: 'all', type: 'all', assignee: '', department: 'all' });
-  const { projects, loading, error, updateProjectStatus, deliverables } = useProjects();
+  // Only call useProjects once and destructure all needed values
+  const {
+    projects,
+    loading,
+    error,
+    updateProjectStatus,
+    deliverables,
+    addProject,
+    editProject,
+    refetch,
+    issues
+  } = useProjects();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    status: 'not-started',
+    pm_status: 'not-started',
+    ops_status: 'not-started',
+    priority: '',
+    start_date: '',
+    end_date: '',
+    budget: '',
+    manager_id: ''
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const handleStatusUpdate = async (projectId: string, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => {
     try {
@@ -55,6 +88,10 @@ const Projects = () => {
     ).length;
     const totalDeliverables = projectDeliverables.length;
     
+    // Calculate blockers for this project
+    const projectBlockers = issues.filter(i => i.project_id === project.id && i.status === 'open' && i.severity === 'high').length;
+    // Calculate team size from deliverables assignees
+    const teamSize = new Set(projectDeliverables.map(d => d.assignee_name)).size;
     // Calculate progress as percentage of completed deliverables for current month
     const progressPercentage = totalDeliverables > 0 ? 
       Math.round((completedDeliverables / totalDeliverables) * 100) : 0;
@@ -71,8 +108,8 @@ const Projects = () => {
       lead: project.manager?.full_name || 'Unassigned',
       deliverables: totalDeliverables,
       completedDeliverables: completedDeliverables,
-      blockers: 0, // These would need to be calculated from issues table
-      teamSize: 0, // This would need to be calculated from task assignments
+      blockers: projectBlockers,
+      teamSize: teamSize,
       hoursAllocated: 0,
       hoursUsed: 0,
       lastCallDate: new Date(project.updated_at).toISOString().split('T')[0],
@@ -82,7 +119,7 @@ const Projects = () => {
       monthlyDeliverables: [],
       pastWeeksStatus: []
     };
-  }), [projects, deliverables]);
+  }), [projects, deliverables, issues]);
   
   // Filter projects based on filters - also use useMemo to prevent unnecessary re-calculations
   const filteredProjects = React.useMemo(() => transformedProjects.filter(project => {
@@ -91,6 +128,160 @@ const Projects = () => {
     if (filters.assignee && !project.lead?.toLowerCase().includes(filters.assignee.toLowerCase())) return false;
     return true;
   }), [transformedProjects, filters]);
+
+  const handleOpenAdd = () => {
+    setForm({
+      name: '', description: '', status: 'not-started', pm_status: 'not-started', ops_status: 'not-started', priority: '', start_date: '', end_date: '', budget: '', manager_id: ''
+    });
+    setIsAddDialogOpen(true);
+  };
+  const handleOpenEdit = (project) => {
+    setEditingProject(project);
+    setForm({
+      name: project.name || '',
+      description: project.description || '',
+      status: project.status || 'not-started',
+      pm_status: project.pm_status || 'not-started',
+      ops_status: project.ops_status || 'not-started',
+      priority: project.priority || '',
+      start_date: project.start_date || '',
+      end_date: project.end_date || '',
+      budget: project.budget?.toString() || '',
+      manager_id: project.manager_id || ''
+    });
+    setIsEditDialogOpen(true);
+  };
+  const handleFormChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+  const isFormValid = form.name && form.status && form.pm_status && form.ops_status && form.start_date && form.manager_id && (!form.budget || !isNaN(Number(form.budget))) && (!form.start_date || !form.end_date || !form.end_date || new Date(form.start_date) <= new Date(form.end_date));
+
+  const handleAdd = async () => {
+    // Robust validation
+    if (!form.name) {
+      toast({ title: "Validation Error", description: "Name is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.status) {
+      toast({ title: "Validation Error", description: "Status is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.pm_status) {
+      toast({ title: "Validation Error", description: "PM status is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.ops_status) {
+      toast({ title: "Validation Error", description: "Ops status is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.start_date) {
+      toast({ title: "Validation Error", description: "Start date is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.manager_id) {
+      toast({ title: "Validation Error", description: "Manager is required.", variant: "destructive" });
+      return;
+    }
+    if (form.budget && isNaN(Number(form.budget))) {
+      toast({ title: "Validation Error", description: "Budget must be a valid number.", variant: "destructive" });
+      return;
+    }
+    if (form.end_date && new Date(form.start_date) > new Date(form.end_date)) {
+      toast({ title: "Validation Error", description: "Start date must be before or equal to end date.", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await addProject({
+        name: form.name,
+        description: form.description,
+        status: form.status,
+        pm_status: form.pm_status,
+        ops_status: form.ops_status,
+        priority: form.priority,
+        start_date: form.start_date,
+        end_date: form.end_date || null,
+        budget: form.budget ? parseFloat(form.budget) : null,
+        manager_id: form.manager_id,
+        progress: 0,
+      });
+      setIsAddDialogOpen(false);
+      setForm({
+        name: '', description: '', status: 'not-started', pm_status: 'not-started', ops_status: 'not-started', priority: '', start_date: '', end_date: '', budget: '', manager_id: ''
+      });
+      refetch();
+      toast({ title: "Project Added" });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add project.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  const handleEdit = async () => {
+    // Robust validation
+    if (!form.name) {
+      toast({ title: "Validation Error", description: "Name is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.status) {
+      toast({ title: "Validation Error", description: "Status is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.pm_status) {
+      toast({ title: "Validation Error", description: "PM Status is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.ops_status) {
+      toast({ title: "Validation Error", description: "Ops Status is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.start_date) {
+      toast({ title: "Validation Error", description: "Start Date is required.", variant: "destructive" });
+      return;
+    }
+    if (!form.end_date) {
+      toast({ title: "Validation Error", description: "End Date is required.", variant: "destructive" });
+      return;
+    }
+    if (form.start_date && form.end_date && new Date(form.start_date) > new Date(form.end_date)) {
+      toast({ title: "Validation Error", description: "Start Date must be before or equal to End Date.", variant: "destructive" });
+      return;
+    }
+    if (!form.manager_id) {
+      toast({ title: "Validation Error", description: "Manager ID is required.", variant: "destructive" });
+      return;
+    }
+    if (form.budget && isNaN(Number(form.budget))) {
+      toast({ title: "Validation Error", description: "Budget must be a valid number.", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await editProject(editingProject.id, {
+        name: form.name,
+        description: form.description,
+        status: form.status,
+        pm_status: form.pm_status,
+        ops_status: form.ops_status,
+        priority: form.priority,
+        start_date: form.start_date,
+        end_date: form.end_date,
+        budget: form.budget ? parseFloat(form.budget) : null,
+        manager_id: form.manager_id
+      });
+      setIsEditDialogOpen(false);
+      setEditingProject(null);
+      setForm({
+        name: '', description: '', status: 'not-started', pm_status: 'not-started', ops_status: 'not-started', priority: '', start_date: '', end_date: '', budget: '', manager_id: ''
+      });
+      refetch();
+      toast({ title: "Project Updated" });
+    } catch (err) {
+      toast({ title: "Error", description: "Failed to update project.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -105,23 +296,24 @@ const Projects = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
-        <Card className="w-96">
-          <CardContent className="p-6 text-center">
-            <h3 className="text-lg font-semibold text-red-700 mb-2">Projects Loading Error</h3>
-            <p className="text-red-600 text-sm">{error}</p>
-            <p className="text-slate-600 text-xs mt-2">Unable to retrieve project data. Please check your network connection and try again.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Note: do not block render on error; show inline banner instead
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {error && (
+          <Card className="border-red-300 bg-red-50">
+            <CardContent className="p-4 text-sm text-red-700">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5" />
+                <div>
+                  <div className="font-medium">Some data failed to load</div>
+                  <div>{error}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Projects and Products</h1>
@@ -131,18 +323,61 @@ const Projects = () => {
             filters={filters}
             onFiltersChange={setFilters}
           />
+          <Button onClick={handleOpenAdd}>Add Project/Product</Button>
         </div>
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredProjects.map((project) => (
+            <div key={project.id} className="relative">
             <ProjectCard 
-              key={project.id} 
               project={project} 
               onStatusUpdate={handleStatusUpdate}
             />
+              <Button size="sm" className="absolute top-2 right-2 z-10" onClick={() => handleOpenEdit(project)}>
+                Edit
+              </Button>
+            </div>
           ))}
         </div>
       </div>
+      {/* Add Project Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Project/Product</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Name</Label><Input name="name" value={form.name} onChange={handleFormChange} /></div>
+            <div><Label>Description</Label><Input name="description" value={form.description} onChange={handleFormChange} /></div>
+            <div><Label>Status</Label><Input name="status" value={form.status} onChange={handleFormChange} /></div>
+            <div><Label>PM Status</Label><Input name="pm_status" value={form.pm_status} onChange={handleFormChange} /></div>
+            <div><Label>Ops Status</Label><Input name="ops_status" value={form.ops_status} onChange={handleFormChange} /></div>
+            <div><Label>Priority</Label><Input name="priority" value={form.priority} onChange={handleFormChange} /></div>
+            <div><Label>Start Date</Label><Input name="start_date" type="date" value={form.start_date} onChange={handleFormChange} /></div>
+            <div><Label>End Date</Label><Input name="end_date" type="date" value={form.end_date} onChange={handleFormChange} /></div>
+            <div><Label>Budget</Label><Input name="budget" type="number" value={form.budget} onChange={handleFormChange} /></div>
+            <div><Label>Manager ID</Label><Input name="manager_id" value={form.manager_id} onChange={handleFormChange} /></div>
+            <Button onClick={handleAdd} disabled={isSaving || !isFormValid}>{isSaving ? 'Saving...' : 'Add Project'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Project/Product</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div><Label>Name</Label><Input name="name" value={form.name} onChange={handleFormChange} /></div>
+            <div><Label>Description</Label><Input name="description" value={form.description} onChange={handleFormChange} /></div>
+            <div><Label>Status</Label><Input name="status" value={form.status} onChange={handleFormChange} /></div>
+            <div><Label>PM Status</Label><Input name="pm_status" value={form.pm_status} onChange={handleFormChange} /></div>
+            <div><Label>Ops Status</Label><Input name="ops_status" value={form.ops_status} onChange={handleFormChange} /></div>
+            <div><Label>Priority</Label><Input name="priority" value={form.priority} onChange={handleFormChange} /></div>
+            <div><Label>Start Date</Label><Input name="start_date" type="date" value={form.start_date} onChange={handleFormChange} /></div>
+            <div><Label>End Date</Label><Input name="end_date" type="date" value={form.end_date} onChange={handleFormChange} /></div>
+            <div><Label>Budget</Label><Input name="budget" type="number" value={form.budget} onChange={handleFormChange} /></div>
+            <div><Label>Manager ID</Label><Input name="manager_id" value={form.manager_id} onChange={handleFormChange} /></div>
+            <Button onClick={handleEdit} disabled={isSaving || !isFormValid}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useIssues } from '@/hooks/useIssues';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { supabase } from '@/integrations/supabase/client';
 
 interface Project {
   id: string;
@@ -30,112 +32,24 @@ interface Project {
 }
 
 interface Issue {
-  id: number;
-  projectId: string;
-  projectName: string;
+  id: string;
+  project_id: string;
   title: string;
   description: string;
   severity: "Sev1" | "Sev2" | "Sev3" | "Incident";
   status: "unresolved" | "resolved";
-  assignee: string;
-  dateCreated: string;
-  dateResolved?: string;
-  department: string;
+  assigned_to: string;
+  created_at: string;
+  updated_at: string;
   eta?: string;
-  elaborateDescription?: string;
 }
 
 interface IssuesTrackerProps {
   projects: Project[];
+  defaultProjectId?: string;
 }
 
-// Mock issues data with synced project names
-const mockIssues: Issue[] = [
-  {
-    id: 1,
-    projectId: "2",
-    projectName: "E-commerce Platform Redesign",
-    title: "Database connection timeout",
-    description: "Intermittent connection timeouts causing API failures during peak hours",
-    elaborateDescription: "We are experiencing intermittent database connection timeouts specifically during peak traffic hours (9 AM - 11 AM and 2 PM - 4 PM). This is causing cascading failures in our API endpoints, resulting in 504 Gateway Timeout errors for approximately 15% of requests during these periods. The issue appears to be related to connection pool exhaustion and may require optimization of our database connection management strategy. We have identified that the current connection pool size of 20 may be insufficient for our current load patterns. Additionally, some long-running queries are not being properly terminated, leading to connection leaks.",
-    severity: "Sev1",
-    status: "unresolved",
-    assignee: "Michael Chen",
-    dateCreated: "2024-06-25",
-    department: "Engineering",
-    eta: "2024-06-28"
-  },
-  {
-    id: 2,
-    projectId: "3",
-    projectName: "Customer Analytics Dashboard", 
-    title: "Third-party API rate limiting",
-    description: "External service rate limits blocking batch operations",
-    elaborateDescription: "Our integration with the third-party payment processing API is being throttled due to rate limiting. The external service allows only 100 requests per minute, but our batch processing jobs require up to 500 requests during peak operations. This is causing significant delays in payment processing and order fulfillment. We need to implement a queue-based system with exponential backoff to respect the rate limits while maintaining system performance. The current implementation does not handle rate limit responses gracefully and simply fails the entire batch operation.",
-    severity: "Sev2",
-    status: "unresolved",
-    assignee: "Sarah Johnson",
-    dateCreated: "2024-06-24",
-    department: "Engineering",
-    eta: "2024-06-30"
-  },
-  {
-    id: 3,
-    projectId: "4",
-    projectName: "Mobile App Development",
-    title: "Data pipeline failing",
-    description: "ETL process failing due to schema changes in source system",
-    elaborateDescription: "The data pipeline responsible for customer analytics has been failing since the upstream CRM system updated their database schema on June 20th. The new schema includes additional fields and has changed the data types for several existing columns, breaking our ETL mappings. This is preventing the analytics dashboard from receiving updated customer data, making the reports stale and unreliable. We need to update our data transformation logic to accommodate the new schema and implement better schema validation to prevent future failures. The issue affects all customer segmentation reports and revenue analytics.",
-    severity: "Incident",
-    status: "unresolved",
-    assignee: "Emily Rodriguez",
-    dateCreated: "2024-06-23",
-    department: "Data",
-    eta: "2024-06-27"
-  },
-  {
-    id: 4,
-    projectId: "5",
-    projectName: "Marketing Automation Tool",
-    title: "Performance issues with large datasets",
-    description: "Dashboard loading times exceed 30 seconds for enterprise customers",
-    elaborateDescription: "Enterprise customers with large datasets (>1M records) are experiencing unacceptable dashboard loading times of 30-45 seconds. The current implementation loads all data client-side and performs filtering and aggregation in the browser, which is not scalable. We need to implement server-side pagination, pre-computed aggregations, and data virtualization to improve performance. The issue is particularly severe for customers in the retail and e-commerce sectors who have high transaction volumes. This is impacting customer satisfaction and retention rates.",
-    severity: "Sev1",
-    status: "unresolved",
-    assignee: "David Park",
-    dateCreated: "2024-06-22",
-    department: "Data",
-    eta: "2024-07-05"
-  },
-  {
-    id: 5,
-    projectId: "6",
-    projectName: "AI-Powered Chatbot",
-    title: "Missing user permissions module",
-    description: "Role-based access control not implemented for sensitive data",
-    elaborateDescription: "The customer analytics dashboard currently lacks proper role-based access control, allowing all users to view sensitive customer data regardless of their authorization level. This poses a significant security and compliance risk, especially for handling PII and financial data. We need to implement a comprehensive permissions system that restricts access to sensitive data based on user roles and departments. The system should support granular permissions at the field level and maintain audit logs for compliance purposes. This is blocking our SOC 2 certification process.",
-    severity: "Sev2",
-    status: "resolved",
-    assignee: "Emily Rodriguez",
-    dateCreated: "2024-06-21",
-    department: "Data",
-    eta: "2024-07-01"
-  },
-  {
-    id: 6,
-    projectId: "7",
-    projectName: "Cloud Infrastructure Migration",
-    title: "Email template rendering issues",
-    description: "Templates not displaying correctly in certain email clients",
-    elaborateDescription: "Email templates generated by our marketing automation tool are not rendering correctly in Outlook 2016/2019 and some versions of Apple Mail. The issue is caused by CSS compatibility problems and the use of modern HTML features that are not supported by older email clients. Approximately 30% of our recipients use these problematic clients, resulting in broken layouts and poor user experience. We need to refactor the email templates to use more conservative HTML/CSS that is compatible with legacy email clients while maintaining visual appeal. This issue is affecting campaign effectiveness and brand perception.",
-    severity: "Sev2",
-    status: "resolved",
-    assignee: "Jessica Wu",
-    dateCreated: "2024-06-20",
-    department: "Marketing",
-    eta: "2024-06-29"
-  }
-];
+// Remove mockIssues, use only live data
 
 const severityConfig = {
   Sev3: { color: "bg-blue-500", label: "Sev3", textColor: "text-blue-700", bgColor: "bg-blue-50" },
@@ -149,11 +63,11 @@ const statusConfig = {
   resolved: { color: "bg-green-500", label: "Resolved", textColor: "text-green-700" }
 };
 
-export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
-  const [issues, setIssues] = useState<Issue[]>(mockIssues);
+export const IssuesTracker: React.FC<IssuesTrackerProps & { useLiveData?: boolean }> = ({ projects, useLiveData = true, defaultProjectId }) => {
+  const { issues, loading, error, addIssue, updateIssue, deleteIssue, refetchIssues } = useIssues();
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterSeverity, setFilterSeverity] = useState<string>("all");
-  const [filterProject, setFilterProject] = useState<string>("all");
+  const [filterProject, setFilterProject] = useState<string>(projects.length === 1 ? projects[0].id : "all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [isDetailSidebarOpen, setIsDetailSidebarOpen] = useState(false);
@@ -171,14 +85,34 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
     eta: undefined as Date | undefined
   });
 
-  const filteredIssues = issues.filter(issue => {
-    const matchesStatus = filterStatus === "all" || issue.status === filterStatus;
-    const matchesSeverity = filterSeverity === "all" || issue.severity === filterSeverity;
-    const matchesProject = filterProject === "all" || issue.projectId === filterProject;
-    const matchesSearch = issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         issue.projectName.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesSeverity && matchesProject && matchesSearch;
-  });
+  // If defaultProjectId is provided, set filterProject to it on mount
+  useEffect(() => {
+    if (defaultProjectId) {
+      setFilterProject(defaultProjectId);
+    }
+  }, [defaultProjectId]);
+
+  // Refetch issues when the page regains focus
+  useEffect(() => {
+    const onFocus = () => refetchIssues();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refetchIssues]);
+
+  const filteredIssues = issues
+    .map(issue => ({
+      ...issue,
+      eta: issue.eta || '',
+    }))
+    .filter(issue => {
+      const matchesStatus = filterStatus === "all" || issue.status === filterStatus;
+      const matchesSeverity = filterSeverity === "all" || issue.severity === filterSeverity;
+      const matchesProject = filterProject === "all" || issue.project_id === filterProject;
+      const projectName = projects.find(p => p.id === issue.project_id)?.name || '';
+      const matchesSearch = issue.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           projectName.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesSeverity && matchesProject && matchesSearch;
+    });
 
   // Issue statistics
   const issueStats = {
@@ -191,9 +125,8 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
 
   // Project issue breakdown instead of department
   const projectIssues = issues.reduce((acc, issue) => {
-    const project = projects.find(p => p.id === issue.projectId);
-    const projectName = project?.name || issue.projectName;
-    
+    const project = projects.find(p => p.id === issue.project_id);
+    const projectName = project?.name || '';
     if (!acc[projectName]) {
       acc[projectName] = { total: 0, unresolved: 0, incident: 0 };
     }
@@ -210,25 +143,13 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
     setIsDetailSidebarOpen(true);
   };
 
-  const handleStatusUpdate = (issueId: number, newStatus: "unresolved" | "resolved", e: React.MouseEvent) => {
+  const handleStatusUpdate = (issueId: string, newStatus: "unresolved" | "resolved", e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering the issue click
-    setIssues(prevIssues => 
-      prevIssues.map(issue => 
-        issue.id === issueId 
-          ? { ...issue, status: newStatus, dateResolved: newStatus === "resolved" ? new Date().toISOString() : undefined }
-          : issue
-      )
-    );
+    updateIssue(issueId, { status: newStatus });
   };
 
-  const handleSeverityUpdate = (issueId: number, newSeverity: "Sev1" | "Sev2" | "Sev3" | "Incident") => {
-    setIssues(prevIssues => 
-      prevIssues.map(issue => 
-        issue.id === issueId 
-          ? { ...issue, severity: newSeverity }
-          : issue
-      )
-    );
+  const handleSeverityUpdate = (issueId: string, newSeverity: "Sev1" | "Sev2" | "Sev3" | "Incident") => {
+    updateIssue(issueId, { severity: newSeverity });
   };
 
   const handleTimelineEdit = () => {
@@ -237,14 +158,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
 
   const handleTimelineSave = () => {
     if (selectedIssue) {
-      setIssues(prevIssues => 
-        prevIssues.map(issue => 
-          issue.id === selectedIssue.id 
-            ? { ...issue, eta: editedEta }
-            : issue
-        )
-      );
-      setSelectedIssue(prev => prev ? { ...prev, eta: editedEta } : null);
+      updateIssue(selectedIssue.id, { eta: editedEta });
     }
     setIsEditingTimeline(false);
   };
@@ -254,40 +168,40 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
     setIsEditingTimeline(false);
   };
 
-  const handleCreateIssue = () => {
+  const handleCreateIssue = async () => {
     if (!newIssue.title || !newIssue.description || !newIssue.projectId || !newIssue.severity || !newIssue.assignee) {
       return; // Basic validation
     }
-
-    const project = projects.find(p => p.id === newIssue.projectId);
-    const createdIssue: Issue = {
-      id: Math.max(...issues.map(i => i.id)) + 1,
-      projectId: newIssue.projectId,
-      projectName: project?.name || "",
-      title: newIssue.title,
-      description: newIssue.description,
-      severity: newIssue.severity as "Sev1" | "Sev2" | "Sev3" | "Incident",
-      status: "unresolved",
-      assignee: newIssue.assignee,
-      dateCreated: new Date().toISOString(),
-      department: project?.department || "Engineering",
-      eta: newIssue.eta?.toISOString().split('T')[0]
-    };
-
-    setIssues(prev => [...prev, createdIssue]);
-    
-    // Reset form
-    setNewIssue({
-      title: "",
-      description: "",
-      projectId: "",
-      severity: "",
-      assignee: "",
-      eta: undefined
-    });
-    
-    setIsAddDialogOpen(false);
+    try {
+      await addIssue({
+        project_id: newIssue.projectId,
+        title: newIssue.title,
+        description: newIssue.description,
+        severity: newIssue.severity as 'Sev1' | 'Sev2' | 'Sev3' | 'Incident',
+        status: 'unresolved',
+        assigned_to: newIssue.assignee,
+        eta: newIssue.eta ? newIssue.eta.toISOString().split('T')[0] : undefined,
+      });
+      setNewIssue({
+        title: "",
+        description: "",
+        projectId: "",
+        severity: "",
+        assignee: "",
+        eta: undefined
+      });
+      setIsAddDialogOpen(false);
+    } catch (err) {
+      // Optionally show error toast
+    }
   };
+
+  if (loading) {
+    return <div className="p-6 text-center">Loading issues...</div>;
+  }
+  if (error) {
+    return <div className="p-6 text-center text-red-600">{error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -590,7 +504,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                         </div>
                         <p className="text-sm text-slate-600 mb-2">{issue.description}</p>
                         <div className="text-xs text-slate-500">
-                          Project: {projects.find(p => p.id === issue.projectId)?.name || issue.projectName} • Assignee: {issue.assignee} • Created: {new Date(issue.dateCreated).toLocaleDateString()}
+                          Project: {projects.find(p => p.id === issue.project_id)?.name || ''} • Assignee: {issue.assigned_to || ''} • Created: {new Date(issue.created_at).toLocaleDateString()}
                         </div>
                       </div>
                     </div>
@@ -635,7 +549,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                 <div className="border-t pt-4">
                   <h4 className="font-medium text-slate-700 mb-2">Project</h4>
                   <p className="text-sm text-slate-600">
-                    {projects.find(p => p.id === selectedIssue.projectId)?.name || selectedIssue.projectName}
+                    {projects.find(p => p.id === selectedIssue.project_id)?.name || ''}
                   </p>
                 </div>
 
@@ -643,7 +557,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
               <div className="border-t pt-4">
                 <h4 className="font-medium text-slate-700 mb-2">Detailed Description</h4>
                 <p className="text-sm text-slate-600 leading-relaxed">
-                  {selectedIssue.elaborateDescription || selectedIssue.description}
+                  {selectedIssue.description}
                 </p>
               </div>
 
@@ -669,7 +583,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                   <div className="flex justify-between">
                     <span className="text-slate-500">Created:</span>
                     <span className="text-slate-600">
-                      {new Date(selectedIssue.dateCreated).toLocaleString()}
+                      {new Date(selectedIssue.created_at).toLocaleString()}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -704,14 +618,7 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                       </span>
                     )}
                   </div>
-                  {selectedIssue.dateResolved && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Resolved:</span>
-                      <span className="text-slate-600">
-                        {new Date(selectedIssue.dateResolved).toLocaleString()}
-                      </span>
-                    </div>
-                  )}
+                  {/* No dateResolved field in Issue; skip resolved date */}
                 </div>
               </div>
 
@@ -721,8 +628,8 @@ export const IssuesTracker: React.FC<IssuesTrackerProps> = ({ projects }) => {
                   <User className="w-4 h-4 text-slate-500" />
                   <h4 className="font-medium text-slate-700">Assignee</h4>
                 </div>
-                <p className="text-sm text-slate-600">{selectedIssue.assignee}</p>
-                <p className="text-xs text-slate-500 mt-1">{selectedIssue.department} Department</p>
+                <p className="text-sm text-slate-600">{selectedIssue.assigned_to || ''}</p>
+                <p className="text-xs text-slate-500 mt-1">{projects.find(p => p.id === selectedIssue.project_id)?.department || ''} Department</p>
               </div>
             </div>
           )}

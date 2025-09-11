@@ -1,15 +1,16 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ResourceOverview } from "@/components/ResourceOverview";
+import ProjectHoursCarousel from "@/components/ProjectHoursCarousel";
 import { EmployeesList } from "@/components/EmployeesList";
 import { ResourceUtilization } from "@/components/ResourceUtilization";
 import { ResourceAllocation } from "@/components/ResourceAllocation";
 import { useProjects } from "@/hooks/useProjects";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 const Resources = () => {
-  const { projects, loading, error } = useProjects();
+  const { projects, loading, error, deliverables, issues } = useProjects();
 
   if (loading) {
     return (
@@ -24,22 +25,17 @@ const Resources = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
-        <Card className="w-96">
-          <CardContent className="p-6 text-center">
-            <h3 className="text-lg font-semibold text-red-700 mb-2">Resource Data Error</h3>
-            <p className="text-red-600 text-sm">{error}</p>
-            <p className="text-slate-600 text-xs mt-2">Please try refreshing the page or contact support if the issue persists.</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Non-blocking error banner
 
   // Transform projects to match the legacy format
-  const transformedProjects = projects.map(project => ({
+  const transformedProjects = projects.map(project => {
+    // Calculate deliverables and blockers for this project
+    const projectDeliverables = deliverables.filter(d => d.project_id === project.id);
+    const completedDeliverables = projectDeliverables.filter(d => d.status === 'completed' || d.status === 'done').length;
+    const totalDeliverables = projectDeliverables.length;
+    const projectBlockers = issues.filter(i => i.project_id === project.id && i.status === 'open' && i.severity === 'high').length;
+    const teamSize = new Set(projectDeliverables.map(d => d.assignee_name)).size;
+    return {
     id: project.id, // Use full UUID
     name: project.name,
     type: "Projects" as const,
@@ -48,10 +44,10 @@ const Resources = () => {
     dueDate: project.end_date || '',
     department: project.manager?.department || 'Unknown',
     lead: project.manager?.full_name || 'Unassigned',
-    deliverables: 0,
-    completedDeliverables: 0,
-    blockers: 0,
-    teamSize: 0,
+      deliverables: totalDeliverables,
+      completedDeliverables: completedDeliverables,
+      blockers: projectBlockers,
+      teamSize: teamSize,
     hoursAllocated: 0,
     hoursUsed: 0,
     lastCallDate: '',
@@ -60,11 +56,25 @@ const Resources = () => {
     healthTrend: "constant" as const,
     monthlyDeliverables: [],
     pastWeeksStatus: []
-  }));
+    };
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {error && (
+          <Card className="border-red-300 bg-red-50">
+            <CardContent className="p-4 text-sm text-red-700">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 mt-0.5" />
+                <div>
+                  <div className="font-medium">Some data failed to load</div>
+                  <div>{error}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Resource Management</h1>
           <p className="text-slate-600 mt-1">Monitor and optimize resource allocation across projects</p>
@@ -79,7 +89,10 @@ const Resources = () => {
           </TabsList>
           
           <TabsContent value="overview" className="mt-6">
-            <ResourceOverview projects={transformedProjects} />
+            <div className="space-y-6">
+              <ProjectHoursCarousel />
+              <ResourceOverview projects={transformedProjects} />
+            </div>
           </TabsContent>
           
           <TabsContent value="employees" className="mt-6">
