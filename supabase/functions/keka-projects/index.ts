@@ -29,15 +29,22 @@ serve(async (req) => {
   }
 
   try {
-    // Get secrets from Supabase - using exact secret names you provided
-    const clientId = Deno.env.get('keka-client-id-1')
-    const clientSecret = Deno.env.get('keka-client-secret-1')
-    const apiKey = Deno.env.get('keka-api-1')
+    // Try different possible secret name formats
+    const clientId = Deno.env.get('keka-client-id-1') || 
+                     Deno.env.get('KEKA_CLIENT_ID_1') || 
+                     Deno.env.get('KEKA_CLIENT_ID')
+    const clientSecret = Deno.env.get('keka-client-secret-1') || 
+                         Deno.env.get('KEKA_CLIENT_SECRET_1') || 
+                         Deno.env.get('KEKA_CLIENT_SECRET')
+    const apiKey = Deno.env.get('keka-api-1') || 
+                   Deno.env.get('KEKA_API_1') || 
+                   Deno.env.get('KEKA_API_KEY')
 
     console.log('Checking secrets availability:', {
       hasClientId: !!clientId,
       hasClientSecret: !!clientSecret,
-      hasApiKey: !!apiKey
+      hasApiKey: !!apiKey,
+      availableEnvVars: Object.keys(Deno.env.toObject()).filter(key => key.toLowerCase().includes('keka'))
     })
 
     if (!clientId || !clientSecret || !apiKey) {
