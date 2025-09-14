@@ -29,10 +29,16 @@ serve(async (req) => {
   }
 
   try {
-    // Get secrets from Supabase
+    // Get secrets from Supabase - using exact secret names you provided
     const clientId = Deno.env.get('keka-client-id-1')
     const clientSecret = Deno.env.get('keka-client-secret-1')
     const apiKey = Deno.env.get('keka-api-1')
+
+    console.log('Checking secrets availability:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      hasApiKey: !!apiKey
+    })
 
     if (!clientId || !clientSecret || !apiKey) {
       return new Response(
