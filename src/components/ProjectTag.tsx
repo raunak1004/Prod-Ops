@@ -31,7 +31,7 @@ interface ProjectTagProps {
   name: string;
   id?: string;
   className?: string;
-  size?: 'sm' | 'xs' | 'default';
+  size?: 'sm' | 'default';
 }
 
 export const ProjectTag: React.FC<ProjectTagProps> = ({ name, id, className, size = 'sm' }) => {

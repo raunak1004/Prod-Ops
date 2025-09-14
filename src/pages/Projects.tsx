@@ -154,32 +154,20 @@ const Projects = () => {
   const handleFormChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
-  const isFormValid = form.name && form.status && form.pm_status && form.ops_status && form.start_date && form.manager_id && (!form.budget || !isNaN(Number(form.budget))) && (!form.start_date || !form.end_date || !form.end_date || new Date(form.start_date) <= new Date(form.end_date));
+  const isFormValid = form.name && form.manager_id && form.start_date && (!form.budget || !isNaN(Number(form.budget))) && (!form.start_date || !form.end_date || new Date(form.start_date) <= new Date(form.end_date));
 
   const handleAdd = async () => {
-    // Robust validation
+    // Robust validation - only Name, Manager ID, and Start date are mandatory
     if (!form.name) {
       toast({ title: "Validation Error", description: "Name is required.", variant: "destructive" });
       return;
     }
-    if (!form.status) {
-      toast({ title: "Validation Error", description: "Status is required.", variant: "destructive" });
-      return;
-    }
-    if (!form.pm_status) {
-      toast({ title: "Validation Error", description: "PM status is required.", variant: "destructive" });
-      return;
-    }
-    if (!form.ops_status) {
-      toast({ title: "Validation Error", description: "Ops status is required.", variant: "destructive" });
+    if (!form.manager_id) {
+      toast({ title: "Validation Error", description: "Manager is required.", variant: "destructive" });
       return;
     }
     if (!form.start_date) {
       toast({ title: "Validation Error", description: "Start date is required.", variant: "destructive" });
-      return;
-    }
-    if (!form.manager_id) {
-      toast({ title: "Validation Error", description: "Manager is required.", variant: "destructive" });
       return;
     }
     if (form.budget && isNaN(Number(form.budget))) {
@@ -195,9 +183,9 @@ const Projects = () => {
       await addProject({
         name: form.name,
         description: form.description,
-        status: form.status,
-        pm_status: form.pm_status,
-        ops_status: form.ops_status,
+        status: form.status || 'not-started',
+        pm_status: form.pm_status || 'not-started',
+        ops_status: form.ops_status || 'not-started',
         priority: form.priority,
         start_date: form.start_date,
         end_date: form.end_date || null,
@@ -218,37 +206,21 @@ const Projects = () => {
     }
   };
   const handleEdit = async () => {
-    // Robust validation
+    // Robust validation - only Name, Manager ID, and Start date are mandatory
     if (!form.name) {
       toast({ title: "Validation Error", description: "Name is required.", variant: "destructive" });
       return;
     }
-    if (!form.status) {
-      toast({ title: "Validation Error", description: "Status is required.", variant: "destructive" });
-      return;
-    }
-    if (!form.pm_status) {
-      toast({ title: "Validation Error", description: "PM Status is required.", variant: "destructive" });
-      return;
-    }
-    if (!form.ops_status) {
-      toast({ title: "Validation Error", description: "Ops Status is required.", variant: "destructive" });
+    if (!form.manager_id) {
+      toast({ title: "Validation Error", description: "Manager ID is required.", variant: "destructive" });
       return;
     }
     if (!form.start_date) {
       toast({ title: "Validation Error", description: "Start Date is required.", variant: "destructive" });
       return;
     }
-    if (!form.end_date) {
-      toast({ title: "Validation Error", description: "End Date is required.", variant: "destructive" });
-      return;
-    }
-    if (form.start_date && form.end_date && new Date(form.start_date) > new Date(form.end_date)) {
+    if (form.end_date && new Date(form.start_date) > new Date(form.end_date)) {
       toast({ title: "Validation Error", description: "Start Date must be before or equal to End Date.", variant: "destructive" });
-      return;
-    }
-    if (!form.manager_id) {
-      toast({ title: "Validation Error", description: "Manager ID is required.", variant: "destructive" });
       return;
     }
     if (form.budget && isNaN(Number(form.budget))) {
@@ -260,9 +232,9 @@ const Projects = () => {
       await editProject(editingProject.id, {
         name: form.name,
         description: form.description,
-        status: form.status,
-        pm_status: form.pm_status,
-        ops_status: form.ops_status,
+        status: form.status || 'not-started',
+        pm_status: form.pm_status || 'not-started',
+        ops_status: form.ops_status || 'not-started',
         priority: form.priority,
         start_date: form.start_date,
         end_date: form.end_date,
