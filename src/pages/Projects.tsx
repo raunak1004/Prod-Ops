@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { KekaApiSettings } from "@/components/KekaApiSettings";
+
 import { kekaApiService, type KekaProject } from "@/services/kekaApi";
 
 const Projects = () => {
@@ -45,7 +45,7 @@ const Projects = () => {
     manager_id: ''
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [isKekaSettingsOpen, setIsKekaSettingsOpen] = useState(false);
+  
   const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 
@@ -266,10 +266,6 @@ const Projects = () => {
   };
 
   const handleImportFromKeka = async () => {
-    if (!kekaApiService.isConfigured()) {
-      setIsKekaSettingsOpen(true);
-      return;
-    }
 
     setIsImporting(true);
     try {
@@ -364,13 +360,6 @@ const Projects = () => {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => setIsKekaSettingsOpen(true)}
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Keka API
-            </Button>
-            <Button
-              variant="outline"
               onClick={handleImportFromKeka}
               disabled={isImporting}
             >
@@ -461,18 +450,6 @@ const Projects = () => {
           </div>
         </DialogContent>
       </Dialog>
-      
-      {/* Keka API Settings Dialog */}
-      <KekaApiSettings
-        isOpen={isKekaSettingsOpen}
-        onOpenChange={setIsKekaSettingsOpen}
-        onConfigured={() => {
-          toast({
-            title: "Keka API Configured",
-            description: "You can now import projects from Keka."
-          });
-        }}
-      />
     </div>
   );
 };
