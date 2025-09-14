@@ -4,13 +4,15 @@ import { TaskFilters } from "@/components/TaskFilters";
 import { useProjects } from "@/hooks/useProjects";
 import { useEmployees } from "@/hooks/useEmployees";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2, AlertTriangle, Settings, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { KekaApiSettings } from "@/components/KekaApiSettings";
+import { kekaApiService, type KekaProject } from "@/services/kekaApi";
 
 const Projects = () => {
   const [filters, setFilters] = useState({ status: 'all', type: 'all', assignee: '', department: 'all' });
@@ -43,6 +45,8 @@ const Projects = () => {
     manager_id: ''
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isKekaSettingsOpen, setIsKekaSettingsOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
 
   const handleStatusUpdate = async (projectId: string, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => {
@@ -261,6 +265,62 @@ const Projects = () => {
     }
   };
 
+  const handleImportFromKeka = async () => {
+    if (!kekaApiService.isConfigured()) {
+      setIsKekaSettingsOpen(true);
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const kekaProjects = await kekaApiService.fetchProjects();
+      let importedCount = 0;
+
+      for (const kekaProject of kekaProjects) {
+        // Check if project already exists by name
+        const existingProject = projects.find(p => 
+          p.name.toLowerCase() === kekaProject.name.toLowerCase()
+        );
+
+        if (!existingProject) {
+          // Find a manager by name or create with default manager
+          const manager = employees.find(emp => 
+            emp.full_name.toLowerCase().includes(kekaProject.manager?.name.toLowerCase() || '')
+          );
+
+          await addProject({
+            name: kekaProject.name,
+            description: kekaProject.description || '',
+            status: kekaProject.status,
+            pm_status: 'not-started',
+            ops_status: 'not-started',
+            priority: '',
+            start_date: kekaProject.startDate || new Date().toISOString().split('T')[0],
+            end_date: kekaProject.endDate || null,
+            budget: kekaProject.budget || null,
+            manager_id: manager?.id || employees[0]?.id || '',
+            progress: kekaProject.progress || 0,
+          });
+          importedCount++;
+        }
+      }
+
+      refetch();
+      toast({
+        title: "Import Successful",
+        description: `Imported ${importedCount} new projects from Keka API.`
+      });
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import from Keka API",
+        variant: "destructive"
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6 flex items-center justify-center">
@@ -301,7 +361,24 @@ const Projects = () => {
             filters={filters}
             onFiltersChange={setFilters}
           />
-          <Button onClick={handleOpenAdd}>Add Project/Product</Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsKekaSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Keka API
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleImportFromKeka}
+              disabled={isImporting}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              {isImporting ? "Importing..." : "Import from Keka"}
+            </Button>
+            <Button onClick={handleOpenAdd}>Add Project/Product</Button>
+          </div>
         </div>
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -384,6 +461,18 @@ const Projects = () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Keka API Settings Dialog */}
+      <KekaApiSettings
+        isOpen={isKekaSettingsOpen}
+        onOpenChange={setIsKekaSettingsOpen}
+        onConfigured={() => {
+          toast({
+            title: "Keka API Configured",
+            description: "You can now import projects from Keka."
+          });
+        }}
+      />
     </div>
   );
 };
