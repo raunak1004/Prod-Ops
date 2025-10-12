@@ -181,7 +181,7 @@ export type Database = {
           description: string | null
           end_date: string | null
           id: string
-          manager_id: string | null
+          manager_id: any
           name: string
           ops_status: string | null
           pm_status: string | null
@@ -197,7 +197,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
-          manager_id?: string | null
+          manager_id?: any
           name: string
           ops_status?: string | null
           pm_status?: string | null
@@ -213,7 +213,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           id?: string
-          manager_id?: string | null
+          manager_id?: any
           name?: string
           ops_status?: string | null
           pm_status?: string | null

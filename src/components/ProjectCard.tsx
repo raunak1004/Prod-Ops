@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,13 +9,13 @@ import { useNavigate } from "react-router-dom";
 import { ProjectTag } from "@/components/ProjectTag";
 
 interface Project {
-  id: string; // Changed from number to string to support UUIDs
+  id: string;
   name: string;
   status: "green" | "amber" | "red" | "not-started";
   progress: number;
   dueDate: string;
   department: string;
-  lead: string;
+  lead: any;
   deliverables: number;
   completedDeliverables: number;
   blockers: number;
@@ -76,7 +75,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdat
   const config = statusConfig[project.status] || statusConfig["not-started"];
   const pmConfig = statusConfig[project.pmStatus] || statusConfig["not-started"];
   const opsConfig = statusConfig[project.opsStatus] || statusConfig["not-started"];
-  const initials = project.lead.split(' ').map(n => n[0]).join('');
   const navigate = useNavigate();
   
   const handleCardClick = (e: React.MouseEvent) => {
@@ -190,13 +188,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdat
         </div>
 
         {/* Project Lead */}
-        <div className="flex items-center gap-2 pt-2 border-t">
-          <Avatar className="h-6 w-6">
-            <AvatarFallback className="text-xs bg-slate-200">{initials}</AvatarFallback>
-          </Avatar>
-          <div className="text-sm text-slate-600">{project.lead}</div>
-          <div className="ml-auto text-xs text-slate-500">Lead</div>
-        </div>
+        {Array.isArray(project.lead) && project.lead.length > 0 && project.lead.map((lead, index) => (
+          <div key={`${project.id}-lead-${index}`} className="flex items-center gap-2 pt-2 border-t">
+            <Avatar className="h-6 w-6">
+              <AvatarFallback className="text-xs bg-slate-200">
+                {lead.name ? lead.name.substring(0, 2).toUpperCase() : 'UN'}
+              </AvatarFallback>
+            </Avatar>
+            <div className="text-sm text-slate-600">{lead.name || 'Unknown'}</div>
+            <div className="ml-auto text-xs text-slate-500">Lead</div>
+          </div>
+        ))}
 
         {/* Quick metrics */}
         <div className="grid grid-cols-2 gap-4 pt-2 border-t">

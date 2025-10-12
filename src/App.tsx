@@ -13,36 +13,31 @@ import Escalation from "./pages/Escalation";
 import ProjectDetail from "./pages/ProjectDetail";
 import NotFound from "./pages/NotFound";
 import { useEffect } from "react";
-import { getAccessToken, fetchProjects } from "./services/kekaApi";
+import { getAccessToken } from "./services/kekaApi";
 
 const queryClient = new QueryClient();
 
 const App = () => {
   useEffect(() => {
-    const fetchTokenAndProjects = async () => {
+    const fetchToken = async () => {
       try {
         const response = await getAccessToken();
-
-        // Fetch projects after getting the token
-        const projects = await fetchProjects();
-        console.log('Keka projects:', projects);
-        // Store projects in localStorage for access by other components
-        localStorage.setItem('keka_projects', JSON.stringify(projects));
-
+        localStorage.setItem('keka_access_token', response.access_token);
+        console.log('Access token refreshed');
       } catch (error) {
-        console.error('Error fetching access token or projects:', error);
+        console.error('Error fetching access token:', error);
       }
     }
 
     // Call immediately on mount
-    fetchTokenAndProjects();
+    fetchToken();
 
-    // Set up interval to call every 86000ms (86 seconds)
-    const interval = setInterval(fetchTokenAndProjects, 86000);
+    // Set up interval to call every 86000ms (86 seconds) - only for token refresh
+    const interval = setInterval(fetchToken, 86000);
 
     // Cleanup interval on component unmount
     return () => clearInterval(interval);
-  }, [])
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

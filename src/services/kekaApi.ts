@@ -28,7 +28,6 @@ export const getAccessToken = async () => {
     api_key: import.meta.env.VITE_KEKA_API_KEY
   }
 
-  console.log("urlParams", urlParams);
   const response = await axios.post(`${loginUrl}`,
     new URLSearchParams(urlParams),
     {
@@ -45,17 +44,26 @@ export const fetchProjects = async () => {
   const accessToken = localStorage.getItem('keka_access_token');
 
   if (!accessToken) {
-    throw new Error('No access token available. Please refresh the page to get a new token.');
+    throw new Error('No access token available. Please log in again.');
   }
 
-  const response = await axios.get('https://foxsense.keka.com/api/v1/psa/projects', {
-    headers: {
-      'Authorization': `Bearer ${accessToken}`
-    }
-  });
-  console.log("Keka projects response", response);
-  return response.data;
-}
+  try {
+    const response = await axios.post(
+      'https://zaptqsllaxhiwandsexv.supabase.co/functions/v1/keka-projects',
+      { accessToken },
+      {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch projects:', error.response?.data || error.message);
+    throw error;
+  }
+};
 
 // Helper function to get cached Keka projects from localStorage
 export const getCachedKekaProjects = (): KekaProject[] => {
