@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getCachedKekaProjects } from '@/services/kekaApi';
 
 export interface Project {
   id: string;
@@ -35,13 +34,8 @@ export interface Task {
   completed_at?: string;
   created_at: string;
   updated_at: string;
-  assignee?: {
-    full_name: string;
-    department: string;
-  } | null;
-  project?: {
-    name: string;
-  } | null;
+  assignee?: { full_name: string; department: string } | null;
+  project?: { name: string } | null;
 }
 
 export interface Issue {
@@ -56,15 +50,9 @@ export interface Issue {
   resolved_at?: string;
   created_at: string;
   updated_at: string;
-  reporter?: {
-    full_name: string;
-  } | null;
-  assignee?: {
-    full_name: string;
-  } | null;
-  project?: {
-    name: string;
-  } | null;
+  reporter?: { full_name: string } | null;
+  assignee?: { full_name: string } | null;
+  project?: { name: string } | null;
 }
 
 export interface Deliverable {
@@ -77,16 +65,11 @@ export interface Deliverable {
   due_date?: string;
   completed_date?: string;
   responsible_employee?: string;
-  assignee_name?: string; // Add the new field
+  assignee_name?: string;
   created_at: string;
   updated_at: string;
-  employee?: {
-    full_name: string;
-    department: string;
-  } | null;
-  project?: {
-    name: string;
-  } | null;
+  employee?: { full_name: string; department: string } | null;
+  project?: { name: string } | null;
 }
 
 export const useProjects = () => {
@@ -98,194 +81,112 @@ export const useProjects = () => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchProjects = async () => {
-    try {
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('projects')
+      .select('*, manager:employees!projects_manager_id_fkey(full_name, department)')
+      .order('created_at', { ascending: false });
 
-      if (projectsError) throw projectsError;
-
-      // Fetch manager details for each project
-      const projectsWithManagers = await Promise.all(
-        (projectsData || []).map(async (project) => {
-          if (project.manager_id) {
-            const { data: managerData, error: managerError } = await supabase
-              .from('employees')
-              .select('full_name, department')
-              .eq('id', project.manager_id)
-              .single();
-            
-            if (!managerError && managerData) {
-              return { ...project, manager: managerData };
-            }
-          }
-          return { ...project, manager: null };
-        })
-      );
-
-      setProjects(projectsWithManagers);
-    } catch (err) {
-      console.error('Error fetching projects:', err);
-      setError('Unable to load projects. Please check your connection and try again.');
-    }
+    if (error) throw error;
+    // Supabase returns the FK join as an array; normalize to a single object
+    const normalized = (data || []).map(p => ({
+      ...p,
+      manager: Array.isArray(p.manager) ? (p.manager[0] ?? null) : p.manager,
+    }));
+    setProjects(normalized as Project[]);
   };
 
   const fetchTasks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setTasks(data || []);
-    } catch (err) {
-      console.error('Error fetching project tasks:', err);
-      setError('Unable to load project tasks. Please check your connection.');
-    }
+    if (error) throw error;
+    setTasks(data || []);
   };
 
   const fetchIssues = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('issues')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('issues')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setIssues(data || []);
-    } catch (err) {
-      console.error('Error fetching project issues:', err);
-      setError('Unable to load project issues. Database connection failed.');
-    }
+    if (error) throw error;
+    setIssues(data || []);
   };
 
   const fetchDeliverables = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('deliverables')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('deliverables')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setDeliverables(data || []);
-    } catch (err) {
-      console.error('Error fetching project deliverables:', err);
-      setError('Unable to load project deliverables. Please try again.');
-    }
+    if (error) throw error;
+    setDeliverables(data || []);
   };
 
-  const updateProjectStatus = async (projectId: string, status: string, statusType: 'status' | 'pm_status' | 'ops_status' = 'status') => {
-    try {
-      const updateData = { [statusType]: status };
-      const { error } = await supabase
-        .from('projects')
-        .update(updateData)
-        .eq('id', projectId);
+  const refetch = async () => {
+    const results = await Promise.allSettled([
+      fetchProjects(),
+      fetchTasks(),
+      fetchIssues(),
+      fetchDeliverables(),
+    ]);
 
-      if (error) throw error;
-      
-      // Update local state immediately to prevent flickering
-      setProjects(prev => 
-        prev.map(project => 
-          project.id === projectId ? { ...project, [statusType]: status } : project
-        )
-      );
-    } catch (err) {
-      console.error('Error updating project status:', err);
-      throw err;
-    }
-  };
-
-  // Add a new project/product
-  const addProject = async (projectData: Omit<Project, 'id' | 'created_at' | 'updated_at' | 'manager'>) => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .insert([projectData])
-        .select('*')
-        .single();
-      if (error) throw error;
-      setProjects(prev => [data, ...prev]);
-      return data;
-    } catch (err) {
-      console.error('Error adding project:', err);
-      throw err;
-    }
-  };
-
-  // Edit (update) an existing project/product
-  const editProject = async (projectId: string, updates: Partial<Project>) => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .update(updates)
-        .eq('id', projectId)
-        .select('*')
-        .single();
-      if (error) throw error;
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, ...updates } : p));
-      return data;
-    } catch (err) {
-      console.error('Error editing project:', err);
-      throw err;
+    const failed = results.find(r => r.status === 'rejected');
+    if (failed && failed.status === 'rejected') {
+      const msg = failed.reason instanceof Error ? failed.reason.message : 'Some data failed to load.';
+      setError(msg);
     }
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setError(null); // Clear any previous errors
-      
-      try {
-        // Load all data in parallel, but handle each fetch independently
-        const results = await Promise.allSettled([
-          fetchProjects(),
-          fetchTasks(),
-          fetchIssues(),
-          fetchDeliverables()
-        ]);
-        
-        // Check if any failed and set appropriate error message
-        const failedFetches = results.filter(result => result.status === 'rejected');
-        if (failedFetches.length > 0) {
-          const firstError = failedFetches[0];
-          if (firstError.status === 'rejected' && firstError.reason instanceof Error) {
-            setError(firstError.reason.message);
-          } else {
-            setError('Some data failed to load. Please refresh the page to try again.');
-          }
-        }
-      } catch (err) {
-        console.error('Unexpected error during data loading:', err);
-        setError('An unexpected error occurred. Please try again.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
+    setLoading(true);
+    setError(null);
+    refetch().finally(() => setLoading(false));
   }, []);
 
-  // Function to sync projects from Keka cache
-  const syncKekaProjects = async () => {
-    try {
-      const kekaProjects = getCachedKekaProjects();
-      if (!kekaProjects.length) {
-        console.log('No Keka projects found in cache');
-        return;
-      }
+  const updateProjectStatus = async (
+    projectId: string,
+    status: string,
+    statusType: 'status' | 'pm_status' | 'ops_status' = 'status'
+  ) => {
+    const { error } = await supabase
+      .from('projects')
+      .update({ [statusType]: status })
+      .eq('id', projectId);
 
-      console.log(`Syncing ${kekaProjects.length} Keka projects...`);
-      
-      // This could be expanded to update existing projects or sync specific fields
-      // For now, just log the available Keka projects
-      console.log('Available Keka projects:', kekaProjects);
-      
-    } catch (error) {
-      console.error('Error syncing Keka projects:', error);
-    }
+    if (error) throw error;
+    setProjects(prev =>
+      prev.map(p => (p.id === projectId ? { ...p, [statusType]: status } : p))
+    );
+  };
+
+  const addProject = async (
+    projectData: Omit<Project, 'id' | 'created_at' | 'updated_at' | 'manager'>
+  ) => {
+    const { data, error } = await supabase
+      .from('projects')
+      .insert([projectData])
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    setProjects(prev => [data, ...prev]);
+    return data;
+  };
+
+  const editProject = async (projectId: string, updates: Partial<Project>) => {
+    const { data, error } = await supabase
+      .from('projects')
+      .update(updates)
+      .eq('id', projectId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    setProjects(prev => prev.map(p => (p.id === projectId ? { ...p, ...updates } : p)));
+    return data;
   };
 
   return {
@@ -295,15 +196,9 @@ export const useProjects = () => {
     deliverables,
     loading,
     error,
-    refetch: () => {
-      fetchProjects();
-      fetchTasks();
-      fetchIssues();
-      fetchDeliverables();
-    },
+    refetch,
     updateProjectStatus,
     addProject,
     editProject,
-    syncKekaProjects
   };
 };

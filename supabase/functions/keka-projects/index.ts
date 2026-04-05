@@ -1,158 +1,160 @@
-// import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-// const corsHeaders = {
-//   'Access-Control-Allow-Origin': '*',
-//   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-// }
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
+// ─── Keka API helpers ──────────────────────────────────────────────────────────
 
-// const KEKA_PROJECTS_URL = 'https://foxsense.keka.com/api/v1/psa/projects'
-// // If provided, use this direct token. Otherwise we will mint a new one via OAuth.
-// const KEKA_DIRECT_BEARER = ''
-// // OAuth settings for minting new access tokens
-// const KEKA_OAUTH_URL = 'https://login.keka.com/connect/token'
-// const KEKA_CLIENT_ID = '12a5a34f-c553-4d7e-b7f0-13e5677ab0ea'
-// const KEKA_CLIENT_SECRET = 'S5eLxQAPijBmhrcCrWyi'
-// const KEKA_API_KEY = 'pFDPrsD8-exMZi0NBaP6R5YMLS3i9vytvR0G89aYoM4='
-// // Optional scope if your tenant needs it
-// const KEKA_SCOPE = 'kekaapi'
+async function getKekaToken(): Promise<string> {
+  const clientId = Deno.env.get('KEKA_CLIENT_ID');
+  const clientSecret = Deno.env.get('KEKA_CLIENT_SECRET');
+  const apiKey = Deno.env.get('KEKA_API_KEY');
 
-// let cachedToken: { token: string; expiresAt: number } | null = null
+  if (!clientId || !clientSecret || !apiKey) {
+    throw new Error('Missing Keka credentials. Set KEKA_CLIENT_ID, KEKA_CLIENT_SECRET, KEKA_API_KEY.');
+  }
 
-// async function getAccessToken(): Promise<string> {
-//   if (KEKA_DIRECT_BEARER && KEKA_DIRECT_BEARER.length > 0) {
-//     return KEKA_DIRECT_BEARER
-//   }
-//   const now = Date.now()
-//   if (cachedToken && cachedToken.expiresAt > now + 30_000) {
-//     return cachedToken.token
-//   }
-//   const body = new URLSearchParams()
-//   body.set('grant_type', 'client_credentials')
-//   body.set('client_id', KEKA_CLIENT_ID)
-//   body.set('client_secret', KEKA_CLIENT_SECRET)
-//   body.set('api_key', KEKA_API_KEY)
-//   if (KEKA_SCOPE) body.set('scope', KEKA_SCOPE)
+  const body = new URLSearchParams({
+    grant_type: 'kekaapi',
+    scope: 'kekaapi',
+    client_id: clientId,
+    client_secret: clientSecret,
+    api_key: apiKey,
+  });
 
-//   const res = await fetch(KEKA_OAUTH_URL, {
-//     method: 'POST',
-//     headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-//     body
-//   })
-//   if (!res.ok) {
-//     const msg = await res.text()
-//     throw new Error(`OAuth token fetch failed: ${res.status} ${msg}`)
-//   }
-//   const json = await res.json() as { access_token: string; expires_in?: number }
-//   const token = json.access_token
-//   const ttlMs = (json.expires_in ?? 3600) * 1000
-//   cachedToken = { token, expiresAt: Date.now() + ttlMs - 60_000 }
-//   return token
-// }
+  const res = await fetch('https://login.keka.com/connect/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+    },
+    body,
+  });
 
-// interface KekaProject {
-//   id: string;
-//   name: string;
-//   description?: string;
-//   status: string;
-//   startDate?: string;
-//   endDate?: string;
-//   budget?: number;
-//   manager?: {
-//     id: string;
-//     name: string;
-//     email: string;
-//   };
-//   progress?: number;
-//   department?: string;
-// }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Keka auth failed (${res.status}): ${text}`);
+  }
 
-// serve(async (req) => {
-//   // Handle CORS preflight requests
-//   if (req.method === 'OPTIONS') {
-//     return new Response('ok', { headers: corsHeaders })
-//   }
+  const data = await res.json();
+  return data.access_token as string;
+}
 
-//   try {
-//     // Support pagination passthrough
-//     const url = new URL(KEKA_PROJECTS_URL)
-//     const { searchParams } = new URL(req.url)
-//     const pageNumber = searchParams.get('pageNumber')
-//     const pageSize = searchParams.get('pageSize')
-//     if (pageNumber) url.searchParams.set('pageNumber', pageNumber)
-//     if (pageSize) url.searchParams.set('pageSize', pageSize)
+async function fetchKekaProjects(token: string): Promise<any[]> {
+  const baseUrl = Deno.env.get('KEKA_BASE_URL') ?? 'https://foxsense.keka.com';
+  // TODO: confirm the exact Keka projects endpoint
+  const url = `${baseUrl}/api/v1/psa/projects`;
 
-//     const bearer = await getAccessToken()
-//     const projectsResponse = await fetch(url.toString(), {
-//       method: 'GET',
-//       headers: {
-//         'Authorization': `Bearer ${bearer}`,
-//         'Accept': 'application/json'
-//       }
-//     })
+  const res = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+    },
+  });
 
-//     if (!projectsResponse.ok) {
-//       const errTxt = await projectsResponse.text()
-//       console.error('Projects fetch failed:', errTxt)
-//       return new Response(
-//         JSON.stringify({ error: `Failed to fetch projects: ${projectsResponse.status}`, details: errTxt }),
-//         { 
-//           status: 500, 
-//           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-//         }
-//       )
-//     }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Keka projects fetch failed (${res.status}): ${text}`);
+  }
 
-//     const projectsData = await projectsResponse.json()
-//     // Keka response has shape { data: [...], ... } or just { data: [...], meta... }
-//     const items = Array.isArray(projectsData) ? projectsData : (projectsData.data ?? [])
+  const data = await res.json();
+  // Keka typically wraps results in a `data` array
+  return Array.isArray(data) ? data : (data.data ?? []);
+}
 
-//     // Transform the data to match our interface
-//     const transformedProjects: KekaProject[] = items.map((project: any) => ({
-//       id: project.id || project.projectId,
-//       name: project.name || project.projectName,
-//       description: project.description,
-//       status: mapKekaStatus(project.status),
-//       startDate: project.startDate || project.startedOn,
-//       endDate: project.endDate || project.expectedEndDate,
-//       budget: project.budget || project.budgetAmount,
-//       manager: project.manager || project.projectManager ? {
-//         id: project.manager?.id || project.projectManager?.id,
-//         name: project.manager?.name || project.projectManager?.name,
-//         email: project.manager?.email || project.projectManager?.email
-//       } : undefined,
-//       progress: project.progress || project.completionPercentage || 0,
-//       department: project.department || project.businessUnit
-//     }))
+// ─── DB upsert ─────────────────────────────────────────────────────────────────
 
-//     return new Response(
-//       JSON.stringify(transformedProjects),
-//       { 
-//         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-//       }
-//     )
+const STATUS_MAP: Record<string, string> = {
+  active: 'active',
+  inprogress: 'active',
+  'in progress': 'active',
+  completed: 'completed',
+  'on-hold': 'on-hold',
+  onhold: 'on-hold',
+  cancelled: 'cancelled',
+  archived: 'cancelled',
+};
 
-//   } catch (error) {
-//     console.error('Error in keka-projects function:', error)
-//     return new Response(
-//       JSON.stringify({ error: 'Internal server error' }),
-//       { 
-//         status: 500, 
-//         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-//       }
-//     )
-//   }
-// })
+function mapStatus(kekaStatus: unknown): string {
+  if (typeof kekaStatus !== 'string') return 'not-started';
+  return STATUS_MAP[kekaStatus.toLowerCase()] ?? 'not-started';
+}
 
-// function mapKekaStatus(kekaStatus: string): string {
-//   const statusMap: Record<string, string> = {
-//     'ACTIVE': 'active',
-//     'COMPLETED': 'completed',
-//     'ON_HOLD': 'on-hold',
-//     'CANCELLED': 'cancelled',
-//     'PLANNED': 'not-started',
-//     'DRAFT': 'not-started'
-//   }
-  
-//   return statusMap[kekaStatus?.toUpperCase()] || 'not-started'
-// }
+async function upsertProjects(
+  supabase: ReturnType<typeof createClient>,
+  kekaProjects: any[]
+): Promise<{ inserted: number; updated: number }> {
+  let inserted = 0;
+  let updated = 0;
+
+  for (const kp of kekaProjects) {
+    const projectData = {
+      name: kp.name ?? kp.projectName,
+      description: kp.description ?? '',
+      status: mapStatus(kp.status),
+      pm_status: 'not-started',
+      ops_status: 'not-started',
+      priority: kp.priority ?? '',
+      progress: kp.progress ?? kp.completionPercentage ?? 0,
+      start_date: kp.startDate ?? kp.start_date ?? null,
+      end_date: kp.endDate ?? kp.end_date ?? null,
+      budget: kp.budget ?? null,
+    };
+
+    const { data: existing } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('name', projectData.name)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from('projects').update(projectData).eq('id', existing.id);
+      updated++;
+    } else {
+      await supabase.from('projects').insert(projectData);
+      inserted++;
+    }
+  }
+
+  return { inserted, updated };
+}
+
+// ─── Handler ───────────────────────────────────────────────────────────────────
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+
+    const token = await getKekaToken();
+    const kekaProjects = await fetchKekaProjects(token);
+
+    if (!kekaProjects.length) {
+      return new Response(
+        JSON.stringify({ success: true, inserted: 0, updated: 0, message: 'No projects returned from Keka.' }),
+        { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { inserted, updated } = await upsertProjects(supabase, kekaProjects);
+
+    return new Response(
+      JSON.stringify({ success: true, inserted, updated, total: kekaProjects.length }),
+      { headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+    );
+  } catch (err: any) {
+    console.error('[keka-projects]', err.message);
+    return new Response(
+      JSON.stringify({ success: false, error: err.message }),
+      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+    );
+  }
+});
