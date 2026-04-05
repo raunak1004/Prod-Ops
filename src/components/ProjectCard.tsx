@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Calendar, Users, AlertTriangle, Clock, Phone } from "lucide-react";
+import React from 'react';
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Pencil, CalendarDays, CheckSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
 import { ProjectTag } from "@/components/ProjectTag";
 
 interface Project {
@@ -25,192 +24,137 @@ interface Project {
   lastCallDate: string;
   pmStatus: "green" | "amber" | "red" | "not-started";
   opsStatus: "green" | "amber" | "red" | "not-started";
-  monthlyDeliverables: Array<{
-    id: number;
-    task: string;
-    dueDate: string;
-    comments: string;
-  }>;
+  monthlyDeliverables: Array<{ id: number; task: string; dueDate: string; comments: string }>;
 }
 
 interface ProjectCardProps {
   project: Project;
   onStatusUpdate?: (projectId: string, statusType: 'status' | 'pmStatus' | 'opsStatus', newStatus: string) => void;
+  onEdit?: () => void;
   onClick?: () => void;
   isSelected?: boolean;
 }
 
-const statusConfig = {
-  green: {
-    color: "bg-green-500",
-    label: "Green",
-    textColor: "text-green-700",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-200"
-  },
-  amber: {
-    color: "bg-amber-500", 
-    label: "Amber",
-    textColor: "text-amber-700",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-200"
-  },
-  red: {
-    color: "bg-red-500",
-    label: "Red", 
-    textColor: "text-red-700",
-    bgColor: "bg-red-50",
-    borderColor: "border-red-200"
-  },
-  "not-started": {
-    color: "bg-slate-500",
-    label: "Not Started",
-    textColor: "text-slate-700",
-    bgColor: "bg-slate-50",
-    borderColor: "border-slate-200"
-  }
+const STATUS = {
+  green:       { dot: 'bg-green-500',  text: 'text-green-700',  bg: 'bg-green-50',  border: 'border-l-green-500',  label: 'Green' },
+  amber:       { dot: 'bg-amber-500',  text: 'text-amber-700',  bg: 'bg-amber-50',  border: 'border-l-amber-500',  label: 'Amber' },
+  red:         { dot: 'bg-red-500',    text: 'text-red-700',    bg: 'bg-red-50',    border: 'border-l-red-500',    label: 'Red' },
+  'not-started': { dot: 'bg-slate-400', text: 'text-slate-600', bg: 'bg-slate-50',  border: 'border-l-slate-300',  label: 'Not Started' },
 };
 
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onStatusUpdate, onClick, isSelected }) => {
-  const config = statusConfig[project.status] || statusConfig["not-started"];
-  const pmConfig = statusConfig[project.pmStatus] || statusConfig["not-started"];
-  const opsConfig = statusConfig[project.opsStatus] || statusConfig["not-started"];
-  const navigate = useNavigate();
-  
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (onClick) {
-      onClick();
-    } else {
-      navigate(`/project/${project.id}`);
-    }
-  };
-  
+function StatusSelect({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: keyof typeof STATUS;
+  onChange: (v: string) => void;
+}) {
+  const cfg = STATUS[value] ?? STATUS['not-started'];
   return (
-    <Card 
-      className={`hover:shadow-lg transition-all duration-300 ${config.borderColor} border-l-4 cursor-pointer ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''}`}
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="text-xs font-medium text-slate-500 shrink-0">{label}</span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger
+          className={`h-6 w-auto gap-1 px-2 text-xs font-medium border-0 ${cfg.text} ${cfg.bg} hover:opacity-80 focus:ring-0 text-justify-start`}
+          // onClick={e => e.stopPropagation()}
+        >
+          <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="green">Green</SelectItem>
+          <SelectItem value="amber">Amber</SelectItem>
+          <SelectItem value="red">Red</SelectItem>
+          <SelectItem value="not-started">Not Started</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+export const ProjectCard = ({ project, onStatusUpdate, onEdit, onClick, isSelected }: ProjectCardProps) => {
+  const navigate = useNavigate();
+  const cfg = STATUS[project.status] ?? STATUS['not-started'];
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('[data-no-nav]')) return;
+    onClick ? onClick() : navigate(`/project/${project.id}`);
+  };
+
+  const formattedDue = project.dueDate
+    ? format(new Date(project.dueDate), 'MMM d, yyyy')
+    : null;
+
+  return (
+    <Card
+      className={`border-l-4 ${cfg.border} hover:shadow-md transition-shadow duration-200 cursor-pointer ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
       onClick={handleCardClick}
     >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <ProjectTag id={project.id} name={project.name} className="h-7 px-3" />
-            <Badge variant="outline" className="text-xs">{project.department}</Badge>
+      <CardContent className="p-4 space-y-3">
+
+        {/* ── Header ── */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <ProjectTag id={project.id} name={project.name} className="max-w-full truncate text-xs h-7 px-3" />
           </div>
-          <Select 
-            value={project.status} 
-            onValueChange={(newStatus: any) => onStatusUpdate?.(project.id, 'status', newStatus)}
+          <Button
+            data-no-nav
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0 text-slate-400 hover:text-slate-700 -mt-0.5 -mr-1"
+            onClick={e => { e.stopPropagation(); onEdit?.(); }}
           >
-            <SelectTrigger 
-              className={`h-7 w-auto text-xs ${config.textColor} ${config.bgColor} border-none hover:bg-opacity-80`}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center gap-1">
-                <div className={`w-2 h-2 rounded-full ${config.color}`}></div>
-                <SelectValue />
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="green">Green</SelectItem>
-              <SelectItem value="amber">Amber</SelectItem>
-              <SelectItem value="red">Red</SelectItem>
-              <SelectItem value="not-started">Not Started</SelectItem>
-            </SelectContent>
-          </Select>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
         </div>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Last Call Date */}
-        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-md">
-          <Phone className="w-4 h-4 text-slate-500" />
-          <div className="flex-1">
-            <div className="text-sm font-medium text-slate-700">Last Call</div>
-            <div className="text-xs text-slate-500">
-              {new Date(project.lastCallDate).toLocaleDateString()}
-            </div>
+
+        {/* ── Status row ── */}
+        <div className="flex items-center gap-4" data-no-nav>
+          <StatusSelect
+            label="PM"
+            value={project.pmStatus}
+            onChange={v => onStatusUpdate?.(project.id, 'pmStatus', v)}
+          />
+          <StatusSelect
+            label="Ops"
+            value={project.opsStatus}
+            onChange={v => onStatusUpdate?.(project.id, 'opsStatus', v)}
+          />
+        </div>
+
+        {/* ── Progress bar ── */}
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-slate-500">
+            <span>Progress</span>
+            <span className="font-medium text-slate-700">{project.progress}%</span>
+          </div>
+          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                project.progress >= 70 ? 'bg-green-500' :
+                project.progress >= 40 ? 'bg-amber-500' : 'bg-red-400'
+              }`}
+              style={{ width: `${project.progress}%` }}
+            />
           </div>
         </div>
 
-        {/* PM Status vs Ops Status */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="text-sm font-medium text-slate-700">PM Status</div>
-              <Select 
-                value={project.pmStatus} 
-                onValueChange={(newStatus: any) => onStatusUpdate?.(project.id, 'pmStatus', newStatus)}
-              >
-                <SelectTrigger 
-                  className={`h-6 w-auto text-xs ${pmConfig.textColor} ${pmConfig.bgColor} border-none hover:bg-opacity-80`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${pmConfig.color}`}></div>
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="green">Green</SelectItem>
-                  <SelectItem value="amber">Amber</SelectItem>
-                  <SelectItem value="red">Red</SelectItem>
-                  <SelectItem value="not-started">Not Started</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        {/* ── Footer stats ── */}
+        <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs text-slate-500">
+          <div className="flex items-center gap-1">
+            <CheckSquare className="h-3.5 w-3.5" />
+            <span>{project.completedDeliverables}/{project.deliverables} deliverables</span>
           </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="text-sm font-medium text-slate-700">Ops Status</div>
-              <Select 
-                value={project.opsStatus} 
-                onValueChange={(newStatus: any) => onStatusUpdate?.(project.id, 'opsStatus', newStatus)}
-              >
-                <SelectTrigger 
-                  className={`h-6 w-auto text-xs ${opsConfig.textColor} ${opsConfig.bgColor} border-none hover:bg-opacity-80`}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center gap-1">
-                    <div className={`w-2 h-2 rounded-full ${opsConfig.color}`}></div>
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="green">Green</SelectItem>
-                  <SelectItem value="amber">Amber</SelectItem>
-                  <SelectItem value="red">Red</SelectItem>
-                  <SelectItem value="not-started">Not Started</SelectItem>
-                </SelectContent>
-              </Select>
+          {formattedDue && (
+            <div className="flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5" />
+              <span>{formattedDue}</span>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Project Lead */}
-        {Array.isArray(project.lead) && project.lead.length > 0 && project.lead.map((lead, index) => (
-          <div key={`${project.id}-lead-${index}`} className="flex items-center gap-2 pt-2 border-t">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-xs bg-slate-200">
-                {lead.name ? lead.name.substring(0, 2).toUpperCase() : 'UN'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="text-sm text-slate-600">{lead.name || 'Unknown'}</div>
-            <div className="ml-auto text-xs text-slate-500">Lead</div>
-          </div>
-        ))}
-
-        {/* Quick metrics */}
-        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-          <div className="text-center">
-            <div className="text-lg font-semibold text-slate-900">{project.progress}%</div>
-            <div className="text-xs text-slate-500">Progress</div>
-          </div>
-          <div className="text-center">
-            <div className="text-lg font-semibold text-slate-900">{project.completedDeliverables}/{project.deliverables}</div>
-            <div className="text-xs text-slate-500">Deliverables</div>
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

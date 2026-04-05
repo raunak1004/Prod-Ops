@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     console.error('[keka-projects]', err.message);
     return new Response(
       JSON.stringify({ success: false, error: err.message }),
-      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
     );
   }
 });

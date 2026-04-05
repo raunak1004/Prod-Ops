@@ -1,7 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ProjectCard } from "@/components/ProjectCard";
-import { TaskFilters } from "@/components/TaskFilters";
-import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { importProjectsFromKeka } from '@/services/kekaApi';
 import { supabase } from '@/integrations/supabase/client';
 import { STATUS_MAP } from '@/lib/constants';
+import { ProjectFilters, ProjectFilterState, DEFAULT_FILTERS } from '@/components/ProjectFilters';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -99,7 +98,7 @@ function ProjectFormDialog({
 // ─── Projects Page ─────────────────────────────────────────────────────────────
 
 const Projects = () => {
-  const [filters, setFilters] = useState({ status: 'all', type: 'all', assignee: '', department: 'all' });
+  const [filters, setFilters] = useState<ProjectFilterState>(DEFAULT_FILTERS);
   const [projects, setProjects] = useState<any[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [deliverables, setDeliverables] = useState<any[]>([]);
@@ -211,8 +210,9 @@ const Projects = () => {
 
   const filteredProjects = useMemo(() =>
     transformedProjects.filter(p => {
-      if (filters.status !== 'all' && p.status !== filters.status) return false;
-      if (filters.department !== 'all' && p.department !== filters.department) return false;
+      if (filters.search && !p.name.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      if (filters.pmStatus !== 'all' && p.pmStatus !== filters.pmStatus) return false;
+      if (filters.opsStatus !== 'all' && p.opsStatus !== filters.opsStatus) return false;
       return true;
     }),
     [transformedProjects, filters]
@@ -314,41 +314,44 @@ const Projects = () => {
       <div className="max-w-7xl mx-auto space-y-6">
         {error && <ErrorBanner message={error} />}
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* ── Page header ── */}
+        <div className="flex flex-col gap-6">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Projects and Products</h1>
-            <p className="text-slate-600 mt-1">Track and manage all your active projects and products</p>
+            <h1 className="text-2xl font-bold text-slate-900">Projects &amp; Products</h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {filteredProjects.length} of {projects.length} projects
+            </p>
           </div>
-          <div className="flex flex-wrap gap-2 items-center">
-            <TaskFilters filters={filters} onFiltersChange={setFilters} />
-            <Button variant="outline" onClick={importFromKeka} disabled={isImporting}>
-              <Download className="h-4 w-4 mr-2" />
-              {isImporting ? 'Importing...' : 'Import from Keka'}
+          <div className="flex flex-wrap items-center gap-2">
+            <ProjectFilters filters={filters} onChange={setFilters} />
+            <Button variant="outline" size="sm" onClick={importFromKeka} disabled={isImporting}>
+              <Download className="h-4 w-4 mr-1.5" />
+              {isImporting ? 'Importing…' : 'Import from Keka'}
             </Button>
-            <Button onClick={() => { setForm(INITIAL_FORM); setAddOpen(true); }}>
-              Add Project
+            <Button size="sm" onClick={() => { setForm(INITIAL_FORM); setAddOpen(true); }}>
+              + Add Project
             </Button>
           </div>
         </div>
 
+        {/* ── Grid ── */}
         {loading ? (
-          <div className="flex items-center justify-center p-12">
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center p-6">
-                <Loader2 className="h-6 w-6 animate-spin text-brand-primary mb-4" />
-                <span>Loading Projects</span>
-              </CardContent>
-            </Card>
+          <div className="flex items-center justify-center p-16">
+            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-16 text-slate-400">
+            <p className="text-sm">No projects match the current filters.</p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filteredProjects.map(project => (
-              <div key={project.id} className="relative">
-                <ProjectCard project={project} onStatusUpdate={handleStatusUpdate} />
-                <Button size="sm" className="absolute top-2 right-2 z-10" onClick={() => openEdit(projects.find(p => p.id === project.id))}>
-                  Edit
-                </Button>
-              </div>
+              <ProjectCard
+                key={project.id}
+                project={project}
+                onStatusUpdate={handleStatusUpdate}
+                onEdit={() => openEdit(projects.find(p => p.id === project.id))}
+              />
             ))}
           </div>
         )}

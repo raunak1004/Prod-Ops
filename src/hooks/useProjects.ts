@@ -83,16 +83,27 @@ export const useProjects = () => {
   const fetchProjects = async () => {
     const { data, error } = await supabase
       .from('projects')
-      .select('*, manager:employees!projects_manager_id_fkey(full_name, department)')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    // Supabase returns the FK join as an array; normalize to a single object
-    const normalized = (data || []).map(p => ({
-      ...p,
-      manager: Array.isArray(p.manager) ? (p.manager[0] ?? null) : p.manager,
-    }));
-    setProjects(normalized as Project[]);
+    const rows = data ?? [];
+
+    // Resolve manager names in one batched query (avoids FK join dependency)
+    const managerIds = [...new Set(rows.map(p => p.manager_id).filter(Boolean))];
+    let managerMap: Record<string, { full_name: string; department: string }> = {};
+
+    if (managerIds.length > 0) {
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('id, full_name, department')
+        .in('id', managerIds);
+      (employees ?? []).forEach(e => { managerMap[e.id] = e; });
+    }
+
+    setProjects(
+      rows.map(p => ({ ...p, manager: p.manager_id ? (managerMap[p.manager_id] ?? null) : null })) as Project[]
+    );
   };
 
   const fetchTasks = async () => {

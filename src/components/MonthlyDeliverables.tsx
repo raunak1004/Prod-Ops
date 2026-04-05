@@ -4,9 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar, Plus, ChevronLeft, ChevronRight, Filter, Flag, Eye } from "lucide-react";
+import { Calendar, Plus, ChevronLeft, ChevronRight, Filter, Flag } from "lucide-react";
 import { AddTaskForm } from './AddTaskForm';
 import { TaskFilters } from './TaskFilters';
 
@@ -24,10 +24,12 @@ interface Task {
 }
 
 interface MonthlyDeliverablesProps {
+  projectId: string;
   tasks: Task[];
   onAddTask: (task: any) => void;
   onTaskClick: (task: Task) => void;
   onTaskStatusUpdate?: (taskId: string, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed' | 'done') => void;
+  onTaskFlag?: (taskId: string, flagged: boolean) => void;
   selectedTask: Task | null;
   isTaskDetailOpen: boolean;
   setIsTaskDetailOpen: (open: boolean) => void;
@@ -73,10 +75,12 @@ const statusConfig = {
 };
 
 export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
+  projectId,
   tasks,
   onAddTask,
   onTaskClick,
   onTaskStatusUpdate,
+  onTaskFlag,
   selectedTask,
   isTaskDetailOpen,
   setIsTaskDetailOpen
@@ -181,7 +185,7 @@ export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
                 <DialogHeader>
                   <DialogTitle>Add New Task</DialogTitle>
                 </DialogHeader>
-                <AddTaskForm onSubmit={handleAddTask} onCancel={() => setIsDialogOpen(false)} />
+                <AddTaskForm projectId={projectId} onSubmit={handleAddTask} onCancel={() => setIsDialogOpen(false)} />
               </DialogContent>
             </Dialog>
           </div>
@@ -203,43 +207,76 @@ export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[25%]">Deliverable</TableHead>
-                  <TableHead className="w-[15%]">Due Date</TableHead>
-                  <TableHead className="w-[10%]">Status</TableHead>
-                  <TableHead className="w-[15%]">Type</TableHead>
-                  <TableHead className="w-[15%]">Department</TableHead>
-                  <TableHead className="w-[10%]">Actions</TableHead>
+                <TableRow className="border-slate-200">
+                  <TableHead className="w-[30%] text-xs font-semibold text-slate-500 uppercase tracking-wide">Deliverable</TableHead>
+                  <TableHead className="w-[18%] text-xs font-semibold text-slate-500 uppercase tracking-wide">Assignee</TableHead>
+                  <TableHead className="w-[12%] text-xs font-semibold text-slate-500 uppercase tracking-wide">Due Date</TableHead>
+                  <TableHead className="w-[14%] text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</TableHead>
+                  <TableHead className="w-[14%] text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</TableHead>
+                  <TableHead className="w-[8%] text-xs font-semibold text-slate-500 uppercase tracking-wide">Flag</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTasks.map((task) => {
                   const statusConf = statusConfig[task.status];
+                  const typeLabel =
+                    task.type === 'feature-request' ? 'Feature Request' :
+                    task.type === 'new-feature'     ? 'New Feature' :
+                    task.type === 'adhoc'           ? 'Adhoc' :
+                    task.type === 'bug'             ? 'Bug' : task.type;
+
+                  const formattedDate = task.dueDate
+                    ? new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '—';
+
+                  const initials = task.assignee
+                    ? task.assignee.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                    : null;
+
                   return (
-                    <TableRow 
-                      key={task.id} 
-                      className="cursor-pointer hover:bg-slate-100"
+                    <TableRow
+                      key={task.id}
+                      className="cursor-pointer hover:bg-slate-50 border-slate-100"
                       onClick={() => onTaskClick(task)}
                     >
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          {task.task}
-                          <Eye className="w-3 h-3 text-slate-400" />
-                        </div>
+                      {/* Deliverable */}
+                      <TableCell className="font-medium text-slate-900 py-3">
+                        {task.task}
                       </TableCell>
-                      <TableCell>
-                        {new Date(task.dueDate).toLocaleDateString()}
+
+                      {/* Assignee */}
+                      <TableCell className="py-3">
+                        {task.assignee && task.assignee !== 'Unassigned' ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold shrink-0">
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm text-slate-800 truncate">{task.assignee}</p>
+                              {task.department && task.department !== 'Unknown' && (
+                                <p className="text-xs text-slate-400 truncate">{task.department}</p>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">Unassigned</span>
+                        )}
                       </TableCell>
-                      <TableCell>
+
+                      {/* Due Date */}
+                      <TableCell className="text-sm text-slate-600 py-3 whitespace-nowrap">
+                        {formattedDate}
+                      </TableCell>
+
+                      {/* Status */}
+                      <TableCell className="py-3" onClick={e => e.stopPropagation()}>
                         <Select
                           value={task.status}
-                          onValueChange={(newStatus: any) => {
-                            onTaskStatusUpdate?.(task.id, newStatus);
-                          }}
+                          onValueChange={(newStatus: any) => onTaskStatusUpdate?.(task.id, newStatus)}
                         >
-                          <SelectTrigger className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border-none ${statusConf.bgColor} ${statusConf.textColor} hover:bg-opacity-80 w-auto h-auto`}>
-                            <div className={`w-2 h-2 rounded-full ${statusConf.color}`}></div>
-                            <SelectValue className="text-xs font-medium" />
+                          <SelectTrigger className={`h-7 w-auto gap-1.5 px-2.5 text-xs font-medium border-0 rounded-full ${statusConf.bgColor} ${statusConf.textColor}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusConf.color}`} />
+                            <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="green">Green</SelectItem>
@@ -251,31 +288,22 @@ export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
                           </SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {task.type === 'feature-request' ? 'Feature Request' :
-                           task.type === 'new-feature' ? 'New Feature' :
-                           task.type === 'adhoc' ? 'Adhoc' :
-                           task.type === 'bug' ? 'Bug' : task.type}
+
+                      {/* Type */}
+                      <TableCell className="py-3">
+                        <Badge variant="outline" className="text-xs font-normal">
+                          {typeLabel}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-xs">
-                          {task.department}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className={`p-1 h-auto ${task.flagged ? 'text-red-600' : 'text-slate-400 hover:text-red-600'}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Toggle flag - in real app, this would update the task
-                          }}
+
+                      {/* Flag */}
+                      <TableCell className="py-3" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => onTaskFlag?.(task.id, !task.flagged)}
+                          className={`p-1 rounded hover:bg-slate-100 transition-colors ${task.flagged ? 'text-red-500' : 'text-slate-300 hover:text-red-400'}`}
                         >
-                          <Flag className="w-4 h-4" fill={task.flagged ? 'currentColor' : 'none'} />
-                        </Button>
+                          <Flag className="w-3.5 h-3.5" fill={task.flagged ? 'currentColor' : 'none'} />
+                        </button>
                       </TableCell>
                     </TableRow>
                   );
@@ -287,84 +315,137 @@ export const MonthlyDeliverables: React.FC<MonthlyDeliverablesProps> = ({
 
         {/* Task Detail Side Sheet */}
         <Sheet open={isTaskDetailOpen} onOpenChange={setIsTaskDetailOpen}>
-          <SheetContent className="w-[400px] sm:w-[540px]">
-            <SheetHeader>
-              <SheetTitle>Task Details</SheetTitle>
-            </SheetHeader>
-            {selectedTask && (
-              <div className="mt-6 space-y-6">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Task</label>
-                  <p className="mt-1 text-sm text-slate-900">{selectedTask.task}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Description</label>
-                  <p className="mt-1 text-sm text-slate-900">{selectedTask.description}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Type</label>
-                  <Badge variant="outline" className="mt-1">
-                    {selectedTask.type === 'feature-request' ? 'Feature Request' :
-                     selectedTask.type === 'new-feature' ? 'New Feature' :
-                     selectedTask.type === 'adhoc' ? 'Adhoc' :
-                     selectedTask.type === 'bug' ? 'Bug' : selectedTask.type}
-                  </Badge>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Department</label>
-                  <Badge variant="secondary" className="mt-1">
-                    {selectedTask.department}
-                  </Badge>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Status</label>
-                  <div className="mt-1">
-                    {(() => {
-                      const statusConf = statusConfig[selectedTask.status];
-                      return (
-                        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${statusConf.bgColor} ${statusConf.textColor}`}>
-                          <div className={`w-2 h-2 rounded-full ${statusConf.color}`}></div>
-                          <span className="text-sm font-medium">{statusConf.label}</span>
+          <SheetContent className="w-[420px] sm:w-[460px] p-0 flex flex-col">
+            {selectedTask && (() => {
+              const statusConf = statusConfig[selectedTask.status];
+              const initials = selectedTask.assignee
+                ? selectedTask.assignee.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+                : null;
+              const typeLabel =
+                selectedTask.type === 'feature-request' ? 'Feature Request' :
+                selectedTask.type === 'new-feature'     ? 'New Feature' :
+                selectedTask.type === 'adhoc'           ? 'Adhoc' :
+                selectedTask.type === 'bug'             ? 'Bug' : selectedTask.type;
+              const formattedDate = selectedTask.dueDate
+                ? new Date(selectedTask.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+                : '—';
+              return (
+                <>
+                  {/* Header */}
+                  <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <SheetTitle className="text-base font-semibold text-slate-900 leading-snug">
+                          {selectedTask.task}
+                        </SheetTitle>
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConf.bgColor} ${statusConf.textColor}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${statusConf.color}`} />
+                            {statusConf.label}
+                          </div>
+                          <Badge variant="outline" className="text-xs font-normal">{typeLabel}</Badge>
+                          {selectedTask.flagged && (
+                            <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium">
+                              <Flag className="w-3 h-3" fill="currentColor" /> Flagged
+                            </span>
+                          )}
                         </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Assignee</label>
-                  <p className="mt-1 text-sm text-slate-900">{selectedTask.assignee}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Due Date</label>
-                  <p className="mt-1 text-sm text-slate-900">
-                    {new Date(selectedTask.dueDate).toLocaleDateString()}
-                  </p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium text-slate-700">Comments</label>
-                  <p className="mt-1 text-sm text-slate-900">{selectedTask.comments || "No comments"}</p>
-                </div>
-
-                {selectedTask.flagged && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <Flag className="w-4 h-4 text-red-600" fill="currentColor" />
-                      <span className="text-sm font-medium text-red-800">Flagged for Attention</span>
+                      </div>
+                      <button
+                        onClick={() => onTaskFlag?.(selectedTask.id, !selectedTask.flagged)}
+                        className={`p-1.5 rounded-md hover:bg-slate-100 transition-colors shrink-0 ${selectedTask.flagged ? 'text-red-500' : 'text-slate-300 hover:text-red-400'}`}
+                        title={selectedTask.flagged ? 'Remove flag' : 'Flag this task'}
+                      >
+                        <Flag className="w-4 h-4" fill={selectedTask.flagged ? 'currentColor' : 'none'} />
+                      </button>
                     </div>
-                    <p className="text-sm text-red-700 mt-1">
-                      This task has been flagged by the operations team for potential delays or escalation.
-                    </p>
                   </div>
-                )}
-              </div>
-            )}
+
+                  {/* Body */}
+                  <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+                    {/* Assignee */}
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Assignee</p>
+                      {selectedTask.assignee && selectedTask.assignee !== 'Unassigned' ? (
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                            {initials}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-900">{selectedTask.assignee}</p>
+                            {selectedTask.department && selectedTask.department !== 'Unknown' && (
+                              <p className="text-xs text-slate-400">{selectedTask.department}</p>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">Unassigned</p>
+                      )}
+                    </div>
+
+                    <div className="h-px bg-slate-100" />
+
+                    {/* Due Date + Status side by side */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Due Date</p>
+                        <p className="text-sm text-slate-900">{formattedDate}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Status</p>
+                        <Select
+                          value={selectedTask.status}
+                          onValueChange={(v: any) => onTaskStatusUpdate?.(selectedTask.id, v)}
+                        >
+                          <SelectTrigger className={`h-7 w-auto gap-1.5 px-2.5 text-xs font-medium border-0 rounded-full ${statusConf.bgColor} ${statusConf.textColor}`}>
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${statusConf.color}`} />
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="green">Green</SelectItem>
+                            <SelectItem value="amber">Amber</SelectItem>
+                            <SelectItem value="red">Red</SelectItem>
+                            <SelectItem value="not-started">Not Started</SelectItem>
+                            <SelectItem value="de-committed">De-Committed</SelectItem>
+                            <SelectItem value="done">Done</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-slate-100" />
+
+                    {/* Description */}
+                    {selectedTask.description && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Description</p>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{selectedTask.description}</p>
+                      </div>
+                    )}
+
+                    {/* Comments */}
+                    {selectedTask.comments && selectedTask.comments !== selectedTask.description && (
+                      <div>
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Comments</p>
+                        <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{selectedTask.comments}</p>
+                      </div>
+                    )}
+
+                    {/* Flag banner */}
+                    {selectedTask.flagged && (
+                      <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-100 rounded-lg">
+                        <Flag className="w-4 h-4 text-red-500 mt-0.5 shrink-0" fill="currentColor" />
+                        <div>
+                          <p className="text-sm font-medium text-red-800">Flagged for attention</p>
+                          <p className="text-xs text-red-600 mt-0.5">This task has been flagged for potential delays or escalation.</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </SheetContent>
         </Sheet>
       </CardContent>

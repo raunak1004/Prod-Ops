@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { User, TrendingUp, TrendingDown, Minus, Plus, Calendar as CalendarIcon } from "lucide-react";
+import { CalendarIcon, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { ProjectTag } from "@/components/ProjectTag";
 
 interface Project {
   id: string;
@@ -18,7 +17,7 @@ interface Project {
   healthTrend: 'improving' | 'declining' | 'constant';
   pastWeeksStatus: Array<{ week: string; status: 'red' | 'amber' | 'green' | 'not-started' }>;
   monthlyDeliverables?: Array<{ assignee: string; [key: string]: any }>;
-  lastCallDate?: Date;
+  lastCallDate?: Date | null;
 }
 
 interface ProjectHeaderProps {
@@ -30,249 +29,163 @@ interface ProjectHeaderProps {
   onLastCallDateUpdate?: (date: Date) => void;
 }
 
-const statusConfig = {
-  green: {
-    color: "bg-green-500",
-    label: "Green",
-    textColor: "text-green-700",
-    bgColor: "bg-green-50",
-    borderColor: "border-green-300"
-  },
-  amber: {
-    color: "bg-amber-500", 
-    label: "Amber",
-    textColor: "text-amber-700",
-    bgColor: "bg-amber-50",
-    borderColor: "border-amber-300"
-  },
-  red: {
-    color: "bg-red-500",
-    label: "Red", 
-    textColor: "text-red-700",
-    bgColor: "bg-red-50",
-    borderColor: "border-red-300"
-  },
-  "not-started": {
-    color: "bg-slate-500",
-    label: "Not Started",
-    textColor: "text-slate-700",
-    bgColor: "bg-slate-50",
-    borderColor: "border-slate-300"
-  }
+const STATUS_CFG = {
+  green:       { dot: 'bg-green-500', text: 'text-green-700', bg: 'bg-green-50',  label: 'Green' },
+  amber:       { dot: 'bg-amber-500', text: 'text-amber-700', bg: 'bg-amber-50',  label: 'Amber' },
+  red:         { dot: 'bg-red-500',   text: 'text-red-700',   bg: 'bg-red-50',    label: 'Red' },
+  'not-started': { dot: 'bg-slate-400', text: 'text-slate-600', bg: 'bg-slate-100', label: 'Not Started' },
 };
 
-const trendConfig = {
-  improving: {
-    icon: TrendingUp,
-    color: "text-green-600",
-    label: "Improving"
-  },
-  declining: {
-    icon: TrendingDown,
-    color: "text-red-600",
-    label: "Declining"
-  },
-  constant: {
-    icon: Minus,
-    color: "text-amber-600",
-    label: "Constant"
-  }
+const WEEK_COLORS: Record<string, string> = {
+  green: 'bg-green-500 border-green-400',
+  amber: 'bg-amber-500 border-amber-400',
+  red:   'bg-red-500   border-red-400',
+  'not-started': 'bg-slate-300 border-slate-300',
 };
 
-export const ProjectHeader: React.FC<ProjectHeaderProps> = ({ project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate, onLeadUpdate, onLastCallDateUpdate }) => {
-  const [newWeekStatus, setNewWeekStatus] = useState<'red' | 'amber' | 'green' | 'not-started'>('green');
-  
-  // Get unique team members from monthly deliverables
-  const getTeamMembers = (): string[] => {
-    if (!project.monthlyDeliverables) return [project.lead];
-    
-    const assignees = project.monthlyDeliverables.map(deliverable => deliverable.assignee);
-    const uniqueMembers = [...new Set([project.lead, ...assignees])];
-    return uniqueMembers.filter(member => member && member.trim() !== '');
-  };
-  
-  // Calculate health trend based on weekly status changes
-  const calculateHealthTrend = (): 'improving' | 'declining' | 'constant' => {
-    const sortedWeeks = project.pastWeeksStatus.sort((a, b) => {
-      const weekNumA = parseInt(a.week.split('-')[1]);
-      const weekNumB = parseInt(b.week.split('-')[1]);
-      return weekNumB - weekNumA; // Most recent first
-    });
+const STATUS_CYCLE: ('green' | 'amber' | 'red' | 'not-started')[] = ['green', 'amber', 'red', 'not-started'];
 
-    if (sortedWeeks.length < 2) return 'constant';
+function StatusSelect({
+  label, value, onChange,
+}: { label: string; value: keyof typeof STATUS_CFG; onChange: (v: string) => void }) {
+  const cfg = STATUS_CFG[value] ?? STATUS_CFG['not-started'];
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">{label}</p>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={`h-8 w-auto gap-1.5 px-3 text-sm font-medium border-0 rounded-full ${cfg.text} ${cfg.bg}`}>
+          <div className={`w-2 h-2 rounded-full shrink-0 ${cfg.dot}`} />
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="green">Green</SelectItem>
+          <SelectItem value="amber">Amber</SelectItem>
+          <SelectItem value="red">Red</SelectItem>
+          <SelectItem value="not-started">Not Started</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
 
-    const lastTwoWeeks = sortedWeeks.slice(0, 2);
-    const lastWeek = lastTwoWeeks[0];
-    const previousWeek = lastTwoWeeks[1];
-
-    // If last two weeks are amber or red, show declining
-    if (lastTwoWeeks.every(week => week.status === 'amber' || week.status === 'red')) {
-      return 'declining';
-    }
-
-    // If status improved from red to amber/green, or from amber to green, show improving
-    if (
-      (previousWeek.status === 'red' && (lastWeek.status === 'amber' || lastWeek.status === 'green')) ||
-      (previousWeek.status === 'amber' && lastWeek.status === 'green')
-    ) {
-      return 'improving';
-    }
-
-    // If status worsened, show declining
-    if (
-      (previousWeek.status === 'green' && (lastWeek.status === 'amber' || lastWeek.status === 'red')) ||
-      (previousWeek.status === 'amber' && lastWeek.status === 'red')
-    ) {
-      return 'declining';
-    }
-
+export const ProjectHeader = ({
+  project, onStatusUpdate, onWeeklyStatusAdd, onWeeklyStatusUpdate, onLastCallDateUpdate,
+}: ProjectHeaderProps) => {
+  const calculateTrend = (): 'improving' | 'declining' | 'constant' => {
+    const sorted = [...project.pastWeeksStatus].sort((a, b) =>
+      parseInt(b.week.split('-')[1]) - parseInt(a.week.split('-')[1])
+    );
+    if (sorted.length < 2) return 'constant';
+    const [last, prev] = sorted;
+    if ((prev.status === 'red' && last.status !== 'red') || (prev.status === 'amber' && last.status === 'green')) return 'improving';
+    if ((prev.status === 'green' && last.status !== 'green') || (prev.status === 'amber' && last.status === 'red')) return 'declining';
     return 'constant';
   };
 
-  const pmConfig = statusConfig[project.pmStatus] || statusConfig["not-started"];
-  const opsConfig = statusConfig[project.opsStatus] || statusConfig["not-started"];
-  const calculatedTrend = calculateHealthTrend();
-  const trendData = trendConfig[calculatedTrend] || trendConfig["constant"];
-  const TrendIcon = trendData.icon;
+  const trend = calculateTrend();
+  const TrendIcon = trend === 'improving' ? TrendingUp : trend === 'declining' ? TrendingDown : Minus;
+  const trendColor = trend === 'improving' ? 'text-green-600' : trend === 'declining' ? 'text-red-600' : 'text-amber-600';
+  const trendLabel = trend === 'improving' ? 'Improving' : trend === 'declining' ? 'Declining' : 'Stable';
 
   return (
-    <div className="bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden">
-      {/* Notebook Header - Rings/Binding Effect */}
-      <div className="bg-slate-100 border-b border-slate-200 p-1">
-        <div className="flex justify-center space-x-8">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="w-4 h-4 rounded-full bg-slate-300 shadow-inner"></div>
-          ))}
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Project identity row */}
+      <div className="px-6 pt-5 pb-4 border-b border-slate-100">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2 min-w-0">
+            <ProjectTag id={project.id} name={project.name} className="text-sm h-8 px-4 max-w-lg truncate" />
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              {project.department && project.department !== 'Unknown' && (
+                <span>{project.department}</span>
+              )}
+              {project.lead && project.lead !== 'Unassigned' && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span>{project.lead}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0 text-sm">
+            <TrendIcon className={`w-4 h-4 ${trendColor}`} />
+            <span className={`font-medium ${trendColor}`}>{trendLabel}</span>
+            <span className="text-slate-400 text-xs ml-1">health trend</span>
+          </div>
         </div>
       </div>
 
-      {/* Project Header */}
-      <div className="p-6 bg-gradient-to-r from-slate-50 to-white border-b border-slate-200">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">{project.name}</h1>
-            <div className="flex items-center gap-3">
-              <Badge variant="outline">{project.department}</Badge>
-              <Select value={project.lead} onValueChange={(newLead: string) => onLeadUpdate?.(newLead)}>
-                <SelectTrigger className="w-auto min-w-[120px] bg-transparent border-none hover:bg-slate-100 p-1 h-auto">
-                  <div className="flex items-center gap-1 text-sm text-slate-600">
-                    <User className="w-4 h-4" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="bg-white border border-slate-200 shadow-lg z-50">
-                  {getTeamMembers().map((member) => (
-                    <SelectItem key={member} value={member} className="hover:bg-slate-100">
-                      {member}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center gap-2 mb-2">
-              <TrendIcon className={`w-5 h-5 ${trendData.color}`} />
-              <span className={`text-sm font-medium ${trendData.color}`}>
-                {trendData.label}
-              </span>
-            </div>
-            <div className="text-xs text-slate-500">Health Trend (2 weeks)</div>
-          </div>
+      {/* Status + weekly + last call row */}
+      <div className="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {/* PM & Ops Status */}
+        <div className="flex gap-6">
+          <StatusSelect
+            label="PM Status"
+            value={project.pmStatus}
+            onChange={v => onStatusUpdate?.('pmStatus', v)}
+          />
+          <StatusSelect
+            label="Ops Status"
+            value={project.opsStatus}
+            onChange={v => onStatusUpdate?.('opsStatus', v)}
+          />
         </div>
 
-        {/* Status Row */}
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">PM Status</div>
-            <Select value={project.pmStatus} onValueChange={(newStatus: any) => onStatusUpdate?.('pmStatus', newStatus)}>
-              <SelectTrigger className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${pmConfig.bgColor} ${pmConfig.textColor} border-none hover:bg-opacity-80 w-auto`}>
-                <div className={`w-2 h-2 rounded-full ${pmConfig.color}`}></div>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="green">Green</SelectItem>
-                <SelectItem value="amber">Amber</SelectItem>
-                <SelectItem value="red">Red</SelectItem>
-                <SelectItem value="not-started">Not Started</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="text-sm font-medium text-slate-700">Ops Status</div>
-            <Select value={project.opsStatus} onValueChange={(newStatus: any) => onStatusUpdate?.('opsStatus', newStatus)}>
-              <SelectTrigger className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${opsConfig.bgColor} ${opsConfig.textColor} border-none hover:bg-opacity-80 w-auto`}>
-                <div className={`w-2 h-2 rounded-full ${opsConfig.color}`}></div>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="green">Green</SelectItem>
-                <SelectItem value="amber">Amber</SelectItem>
-                <SelectItem value="red">Red</SelectItem>
-                <SelectItem value="not-started">Not Started</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Weekly Status Management */}
-        <div className="mt-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">Weekly Status Management</div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn(
-                  "h-8 justify-start text-left font-normal",
-                  !project.lastCallDate && "text-muted-foreground"
-                )}>
-                  <CalendarIcon className="w-4 h-4 mr-2" />
-                  {project.lastCallDate ? format(project.lastCallDate, "PPP") : "Last Call Date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  mode="single"
-                  selected={project.lastCallDate}
-                  onSelect={(date) => date && onLastCallDateUpdate?.(date)}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          
-          <div className="grid grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((weekNum) => {
-              const weekData = project.pastWeeksStatus.find(w => w.week === `Week-${weekNum}`);
+        {/* Weekly dots */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Weekly Status</p>
+          <div className="flex items-center gap-3">
+            {[1, 2, 3, 4].map(weekNum => {
+              const key = `Week-${weekNum}`;
+              const weekData = project.pastWeeksStatus.find(w => w.week === key);
               return (
-                <div key={weekNum} className="space-y-2">
-                  <div className="text-xs font-medium text-slate-600">Week-{weekNum}</div>
-                  {weekData ? (
-                    <div 
-                      className={`w-6 h-6 rounded-full border-2 border-dashed cursor-pointer hover:scale-110 transition-transform ${
-                        weekData.status === 'green' ? 'bg-green-500 border-green-300' :
-                        weekData.status === 'amber' ? 'bg-amber-500 border-amber-300' :
-                        weekData.status === 'red' ? 'bg-red-500 border-red-300' :
-                        'bg-slate-500 border-slate-300'
-                      }`}
-                      onClick={() => {
-                        const statusCycle: ('green' | 'amber' | 'red' | 'not-started')[] = ['green', 'amber', 'red', 'not-started'];
-                        const currentIndex = statusCycle.indexOf(weekData.status);
-                        const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
-                        onWeeklyStatusUpdate?.(weekData.week, nextStatus);
-                      }}
-                    ></div>
-                  ) : (
-                    <div 
-                      className="w-6 h-6 rounded-full border-2 border-dashed border-slate-200 bg-slate-50 cursor-pointer hover:scale-110 transition-transform"
-                      onClick={() => onWeeklyStatusAdd?.({ week: `Week-${weekNum}`, status: 'green' })}
-                    ></div>
-                  )}
+                <div key={weekNum} className="flex flex-col items-center gap-1">
+                  <button
+                    type="button"
+                    className={cn(
+                      'w-7 h-7 rounded-full border-2 transition-transform hover:scale-110',
+                      weekData ? WEEK_COLORS[weekData.status] : 'bg-slate-100 border-slate-200 border-dashed'
+                    )}
+                    onClick={() => {
+                      if (weekData) {
+                        const idx = STATUS_CYCLE.indexOf(weekData.status);
+                        onWeeklyStatusUpdate?.(key, STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]);
+                      } else {
+                        onWeeklyStatusAdd?.({ week: key, status: 'green' });
+                      }
+                    }}
+                  />
+                  <span className="text-xs text-slate-400">W{weekNum}</span>
                 </div>
               );
             })}
           </div>
+        </div>
+
+        {/* Last Call Date */}
+        <div className="space-y-1.5">
+          <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Last Call Date</p>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn('h-8 justify-start font-normal', !project.lastCallDate && 'text-slate-400')}
+              >
+                <CalendarIcon className="w-3.5 h-3.5 mr-2" />
+                {project.lastCallDate ? format(project.lastCallDate, 'MMM d, yyyy') : 'Set date'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={project.lastCallDate ?? undefined}
+                onSelect={date => date && onLastCallDateUpdate?.(date)}
+                initialFocus
+                className="p-3 pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </div>

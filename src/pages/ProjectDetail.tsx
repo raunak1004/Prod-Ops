@@ -1,450 +1,248 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ProjectNavigation } from '@/components/ProjectNavigation';
 import { ProjectHeader } from '@/components/ProjectHeader';
 import { MonthlyDeliverables } from '@/components/MonthlyDeliverables';
 import { ExecutiveSummary } from '@/components/ExecutiveSummary';
 import { ResourceOverview } from '@/components/ResourceOverview';
 import { IssuesTracker } from '@/components/IssuesTracker';
+import { LoadingState } from '@/components/ui/loading-state';
+import { useProjects } from '@/hooks/useProjects';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { STATUS_MAP } from '@/lib/constants';
 
-// Navigation tabs configuration
-const getNavigationTabs = (projectData: any) => [
-  { 
-    id: 'overview', 
-    label: 'Overview', 
-    count: 1 
-  },
-  { 
-    id: 'project', 
-    label: 'Project', 
-    count: projectData?.monthlyDeliverables?.length || 0 
-  },
-  { 
-    id: 'resource', 
-    label: 'Resource', 
-    count: projectData?.teamSize || 0 
-  },
-  { 
-    id: 'escalation', 
-    label: 'Escalation', 
-    count: projectData?.blockers || 0 
-  }
-];
+// Deliverable statuses that are already valid UI values — pass through directly
+const DELIVERABLE_STATUS_PASS_THROUGH = new Set(['green', 'amber', 'red', 'not-started', 'de-committed', 'done']);
 
-const ProjectDetail: React.FC = () => {
+const ProjectDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  // State for data
-  const [projects, setProjects] = useState([]);
-  const [deliverables, setDeliverables] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
+  const { toast } = useToast();
+
+  const { projects, deliverables, issues, loading, refetch } = useProjects();
+
   const [activeTab, setActiveTab] = useState('project');
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [isTaskDetailOpen, setIsTaskDetailOpen] = useState(false);
   const [weeklyStatuses, setWeeklyStatuses] = useState<any[]>([]);
   const [lastCallDate, setLastCallDate] = useState<Date | null>(null);
-  const { toast } = useToast();
 
-  // Data fetching functions
-  const fetchProjectsData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          manager:employees!projects_manager_id_fkey(
-            full_name,
-            department
-          )
-        `)
-        .order('created_at', { ascending: false });
+  // Find this project
+  const raw = useMemo(() => projects.find(p => p.id === id), [projects, id]);
 
-      if (error) throw error;
-      setProjects(data || []);
-    } catch (err) {
-      console.error('Error fetching projects:', err);
-    }
-  };
-
-  const fetchDeliverablesData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('deliverables')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setDeliverables(data || []);
-    } catch (err) {
-      console.error('Error fetching deliverables:', err);
-    }
-  };
-
-  const refetch = () => {
-    fetchProjectsData();
-    fetchDeliverablesData();
-  };
-
-  // Load data on component mount
+  // Fetch weekly statuses
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await Promise.all([
-        fetchProjectsData(),
-        fetchDeliverablesData()
-      ]);
-      setLoading(false);
-    };
-    loadData();
-  }, []);
-  
-  // Find project from Supabase data using full UUID
-  const currentProject = projects.find(p => p.id === id);
-
-  useEffect(() => {
-    if ((currentProject as any)?.last_call_date) {
-      setLastCallDate(new Date((currentProject as any).last_call_date));
-    }
-  }, [currentProject]);
-  
-  // Fetch weekly statuses for this project
-  React.useEffect(() => {
-    const fetchWeeklyStatuses = async () => {
-      if (!id) return;
-      
-      const { data, error } = await supabase
-        .from('weekly_status')
-        .select('*')
-        .eq('project_id', id)
-        .order('week');
-      
-      if (error) {
-        console.error('Error fetching weekly statuses:', error);
-      } else {
-        setWeeklyStatuses(data || []);
-      }
-    };
-    
-    fetchWeeklyStatuses();
+    if (!id) return;
+    supabase
+      .from('weekly_status')
+      .select('*')
+      .eq('project_id', id)
+      .order('week')
+      .then(({ data }) => setWeeklyStatuses(data ?? []));
   }, [id]);
-  
-  // Transform to legacy format if found
-  const mapStatusToUIStatus = (dbStatus: string): "green" | "amber" | "red" | "not-started" => {
-    switch (dbStatus?.toLowerCase()) {
-      case 'active':
-      case 'completed':
-      case 'green':
-        return 'green';
-      case 'planning':
-      case 'pending':
-      case 'amber':
-        return 'amber';
-      case 'on-hold':
-      case 'cancelled':
-      case 'red':
-        return 'red';
-      case 'not-started':
-        return 'not-started';
-      default:
-        return 'not-started';
-    }
-  };
 
-  const project = currentProject ? {
-    id: currentProject.id, // Use full UUID
-    name: currentProject.name,
-    type: "Projects" as const,
-    status: mapStatusToUIStatus(currentProject.status),
-    progress: currentProject.progress,
-    dueDate: currentProject.end_date || '',
-    department: currentProject.manager?.department || 'Unknown',
-    lead: currentProject.manager?.full_name || 'Unassigned',
-    deliverables: 0,
-    completedDeliverables: 0,
-    blockers: 0,
-    teamSize: 0,
-    hoursAllocated: 0,
-    hoursUsed: 0,
-    lastCallDate: lastCallDate,
-    pmStatus: mapStatusToUIStatus(currentProject.pm_status || currentProject.status),
-    opsStatus: mapStatusToUIStatus(currentProject.ops_status || currentProject.status),
-    healthTrend: "constant" as const,
-    monthlyDeliverables: deliverables
-      .filter(d => d.project_id === currentProject.id)
-      .map(d => ({
+  // Sync lastCallDate from project record
+  useEffect(() => {
+    if ((raw as any)?.last_call_date) {
+      setLastCallDate(new Date((raw as any).last_call_date));
+    }
+  }, [raw]);
+
+  // Build the transformed project shape expected by sub-components
+  const project = useMemo(() => {
+    if (!raw) return null;
+
+    const projectDeliverables = deliverables.filter(d => d.project_id === raw.id);
+    const completed = projectDeliverables.filter(d => ['completed', 'done', 'green'].includes(d.status?.toLowerCase() ?? '')).length;
+    const blockers = issues.filter(
+      i => i.project_id === raw.id && i.status === 'unresolved'
+    ).length;
+    const teamSize = new Set(projectDeliverables.map(d => d.assignee_name).filter(Boolean)).size;
+
+    return {
+      id: raw.id,
+      name: raw.name,
+      type: 'Projects' as const,
+      status: STATUS_MAP[raw.status?.toLowerCase()] ?? 'not-started',
+      progress: raw.progress,
+      dueDate: raw.end_date ?? '',
+      department: raw.manager?.department ?? 'Unknown',
+      lead: raw.manager?.full_name ?? 'Unassigned',
+      deliverables: projectDeliverables.length,
+      completedDeliverables: completed,
+      blockers,
+      teamSize,
+      hoursAllocated: 0,
+      hoursUsed: 0,
+      lastCallDate,
+      pmStatus: (STATUS_MAP[raw.pm_status?.toLowerCase()] ?? 'not-started') as 'green' | 'amber' | 'red' | 'not-started',
+      opsStatus: (STATUS_MAP[raw.ops_status?.toLowerCase()] ?? 'not-started') as 'green' | 'amber' | 'red' | 'not-started',
+      healthTrend: 'constant' as const,
+      monthlyDeliverables: projectDeliverables.map(d => ({
         id: d.id,
         task: d.name,
-        dueDate: d.due_date || '',
-        comments: d.description || '',
-        description: d.description || '',
-        type: d.type || 'new-feature',
-        assignee: d.assignee_name || 'Unassigned', // Use the new assignee_name field
-        department: currentProject.manager?.department || 'Unknown',
-        status: mapStatusToUIStatus(d.status || 'pending'),
-        flagged: false
+        dueDate: d.due_date ?? '',
+        description: d.description ?? '',
+        type: d.type ?? 'new-feature',
+        assignee: d.assignee_name ?? 'Unassigned',
+        department: raw.manager?.department ?? 'Unknown',
+        status: (DELIVERABLE_STATUS_PASS_THROUGH.has(d.status?.toLowerCase() ?? '') ? d.status?.toLowerCase() : STATUS_MAP[d.status?.toLowerCase()]) ?? 'not-started',
+        comments: d.description ?? '',
+        flagged: (d as any).flagged ?? false,
       })),
-    pastWeeksStatus: weeklyStatuses.map(ws => ({
-      week: ws.week,
-      status: ws.status as 'green' | 'amber' | 'red' | 'not-started'
-    }))
-  } : null;
+      pastWeeksStatus: weeklyStatuses.map(ws => ({
+        week: ws.week,
+        status: ws.status as 'green' | 'amber' | 'red' | 'not-started',
+      })),
+    };
+  }, [raw, deliverables, issues, weeklyStatuses, lastCallDate]);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────────
 
   const handleAddTask = async (taskData: any) => {
-    if (!currentProject?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('deliverables')
-        .insert({
-          name: taskData.task,
-          description: taskData.description,
-          type: taskData.type,
-          assignee_name: taskData.assignee, // Use the new assignee_name field
-          due_date: taskData.dueDate.toISOString().split('T')[0],
-          project_id: currentProject.id,
-          status: 'pending'
-        });
-      
-      if (error) {
-        console.error('Error adding task:', error);
-        toast({
-          title: "Error",
-          description: "Failed to add task. Please try again.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Task added successfully!"
-        });
-        refetch(); // Refresh the data
-      }
-    } catch (error) {
-      console.error('Error adding task:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add task. Please try again.",
-        variant: "destructive"
-      });
+    if (!raw?.id) return;
+    const { error } = await supabase.from('deliverables').insert({
+      name: taskData.task,
+      description: taskData.description ?? taskData.comments ?? '',
+      type: taskData.type,
+      assignee_name: taskData.assignee,
+      responsible_employee: taskData.assigneeId || null,
+      due_date: format(taskData.dueDate, 'yyyy-MM-dd'),
+      project_id: raw.id,
+      status: 'pending',
+    });
+    if (error) {
+      toast({ title: "Error", description: "Failed to add task.", variant: "destructive" });
+    } else {
+      toast({ title: "Task added" });
+      refetch();
     }
   };
 
-  const handleTaskClick = (task: any) => {
-    setSelectedTask(task);
-    setIsTaskDetailOpen(true);
+  const handleTaskStatusUpdate = async (taskId: string, newStatus: string) => {
+    const { error } = await supabase.from('deliverables').update({ status: newStatus }).eq('id', taskId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update task status.", variant: "destructive" });
+    } else {
+      refetch();
+    }
   };
 
-  const handleBackNavigation = () => {
-    navigate('/?tab=projects');
+  const handleTaskFlag = async (taskId: string, flagged: boolean) => {
+    const { error } = await supabase.rpc('set_deliverable_flagged', { p_id: taskId, p_flagged: flagged });
+    if (error) {
+      toast({ title: "Error", description: "Failed to update flag.", variant: "destructive" });
+    } else {
+      refetch();
+    }
   };
 
   const handleStatusUpdate = async (statusType: 'pmStatus' | 'opsStatus', newStatus: string) => {
-    if (!currentProject?.id) return;
-    
-    try {
-      const dbField = statusType === 'pmStatus' ? 'pm_status' : 'ops_status';
-      const { error } = await supabase
-        .from('projects')
-        .update({ [dbField]: newStatus })
-        .eq('id', currentProject.id);
-
-      if (error) {
-        console.error('Error updating project status:', error);
-        toast({
-          title: "Error",
-          description: "Failed to update status. Please try again.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: `${statusType === 'pmStatus' ? 'PM' : 'Ops'} status updated successfully!`
-        });
-        refetch(); // Refresh the data
-      }
-    } catch (error) {
-      console.error('Error updating project status:', error);
+    if (!raw?.id) return;
+    const dbField = statusType === 'pmStatus' ? 'pm_status' : 'ops_status';
+    const { error } = await supabase.from('projects').update({ [dbField]: newStatus }).eq('id', raw.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    } else {
+      refetch();
     }
   };
 
   const handleWeeklyStatusAdd = async (weekStatus: { week: string; status: 'red' | 'amber' | 'green' | 'not-started' }) => {
-    if (!currentProject?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('weekly_status')
-        .insert({
-          project_id: currentProject.id,
-          week: weekStatus.week,
-          status: weekStatus.status
-        });
-      
-      if (error) {
-        console.error('Error adding weekly status:', error);
-        toast({
-          title: "Error",
-          description: "Failed to add weekly status. Please try again.",
-          variant: "destructive"
-        });
-      } else {
-        // Update local state
-        setWeeklyStatuses(prev => [...prev, {
-          project_id: currentProject.id,
-          week: weekStatus.week,
-          status: weekStatus.status
-        }]);
-        toast({
-          title: "Success",
-          description: "Weekly status added successfully!"
-        });
-      }
-    } catch (error) {
-      console.error('Error adding weekly status:', error);
+    if (!raw?.id) return;
+    const { error } = await supabase.from('weekly_status').insert({ project_id: raw.id, ...weekStatus });
+    if (!error) {
+      setWeeklyStatuses(prev => [...prev, { project_id: raw.id, ...weekStatus }]);
     }
   };
-  
+
   const handleWeeklyStatusUpdate = async (week: string, newStatus: 'red' | 'amber' | 'green' | 'not-started') => {
-    if (!currentProject?.id) return;
-    
-    try {
-      const { error } = await supabase
-        .from('weekly_status')
-        .update({ status: newStatus })
-        .eq('project_id', currentProject.id)
-        .eq('week', week);
-      
-      if (error) {
-        console.error('Error updating weekly status:', error);
-        toast({
-          title: "Error",
-          description: "Failed to update weekly status. Please try again.",
-          variant: "destructive"
-        });
-      } else {
-        // Update local state
-        setWeeklyStatuses(prev => prev.map(ws => 
-          ws.week === week && ws.project_id === currentProject.id
-            ? { ...ws, status: newStatus }
-            : ws
-        ));
-        toast({
-          title: "Success",
-          description: "Weekly status updated successfully!"
-        });
-      }
-    } catch (error) {
-      console.error('Error updating weekly status:', error);
+    if (!raw?.id) return;
+    const { error } = await supabase
+      .from('weekly_status')
+      .update({ status: newStatus })
+      .eq('project_id', raw.id)
+      .eq('week', week);
+    if (!error) {
+      setWeeklyStatuses(prev =>
+        prev.map(ws => ws.week === week && ws.project_id === raw.id ? { ...ws, status: newStatus } : ws)
+      );
     }
-  };
-
-  const handleTaskStatusUpdate = async (taskId: string, newStatus: 'red' | 'amber' | 'green' | 'not-started' | 'de-committed' | 'done') => {
-    try {
-      const { error } = await supabase
-        .from('deliverables')
-        .update({ status: newStatus })
-        .eq('id', taskId);
-      
-      if (error) {
-        console.error('Error updating task status:', error);
-        toast({
-          title: "Error",
-          description: "Failed to update task status. Please try again.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Task status updated successfully!"
-        });
-        refetch(); // Refresh the data
-      }
-    } catch (error) {
-      console.error('Error updating task status:', error);
-    }
-  };
-
-  const handleLeadUpdate = (newLead: string) => {
-    // This would need to update the project manager in Supabase
-    console.log('Update lead:', newLead);
   };
 
   const handleLastCallDateUpdate = async (date: Date) => {
-    if (!currentProject?.id) return;
+    if (!raw?.id) return;
     setLastCallDate(date);
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .update({ last_call_date: date.toISOString().split('T')[0] } as any)
-        .eq('id', currentProject.id);
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Failed to update last call date. Please try again.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Last call date updated!"
-        });
-        refetch();
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update last call date. Please try again.",
-        variant: "destructive"
-      });
+    const localDate = format(date, 'yyyy-MM-dd');
+    const { error } = await supabase
+      .from('projects')
+      .update({ last_call_date: localDate } as any)
+      .eq('id', raw.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update last call date.", variant: "destructive" });
+    } else {
+      toast({ title: "Last call date updated" });
     }
   };
-  
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center">Loading project details...</div>
-        </div>
-      </div>
-    );
-  }
-  
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
+  if (loading) return <LoadingState message="Loading project..." />;
+
   if (!project) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-slate-900 mb-4">Project Not Found</h1>
-            <Button onClick={handleBackNavigation} variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Projects and Products 
-            </Button>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <p className="text-slate-600">Project not found.</p>
+          <Button variant="outline" onClick={() => navigate('/projects')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Projects
+          </Button>
         </div>
       </div>
     );
   }
 
-  const navigationTabs = getNavigationTabs(project);
+  const tabs = [
+    { id: 'overview',   label: 'Overview',   count: undefined },
+    { id: 'project',    label: 'Project',    count: project.monthlyDeliverables.length },
+    { id: 'resource',   label: 'Resource',   count: project.teamSize },
+    { id: 'escalation', label: 'Escalation', count: project.blockers },
+  ];
 
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <ExecutiveSummary projects={[project]} />;
+        return (
+          <ExecutiveSummary projects={[{
+            id: project.id,
+            name: project.name,
+            status: (project.status === 'not-started' ? 'amber' : project.status) as 'green' | 'amber' | 'red',
+            progress: project.progress,
+            dueDate: project.dueDate,
+            department: project.department,
+            lead: project.lead,
+            deliverables: project.deliverables,
+            completedDeliverables: project.completedDeliverables,
+            blockers: project.blockers,
+            teamSize: project.teamSize,
+            hoursAllocated: project.hoursAllocated,
+            hoursUsed: project.hoursUsed,
+          }]} />
+        );
       case 'project':
         return (
           <MonthlyDeliverables
+            projectId={project.id}
             tasks={project.monthlyDeliverables}
             onAddTask={handleAddTask}
-            onTaskClick={handleTaskClick}
+            onTaskClick={(task) => { setSelectedTask(task); setIsTaskDetailOpen(true); }}
             onTaskStatusUpdate={handleTaskStatusUpdate}
+            onTaskFlag={handleTaskFlag}
             selectedTask={selectedTask}
             isTaskDetailOpen={isTaskDetailOpen}
             setIsTaskDetailOpen={setIsTaskDetailOpen}
@@ -461,57 +259,36 @@ const ProjectDetail: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 pb-0">
-          <Button onClick={handleBackNavigation} variant="outline" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Projects and Products 
-          </Button>
-          <Badge variant="outline" className="text-sm">
-            Last updated: {new Date().toLocaleDateString()}
-          </Badge>
-        </div>
+      <div className="max-w-6xl mx-auto px-6 py-6 space-y-4">
 
-        {/* Project Header */}
-        <div className="px-6 py-4">
-        <ProjectHeader 
-          project={{
-            ...project,
-            lastCallDate: lastCallDate
-          }} 
+        {/* Back button */}
+        <Button variant="outline" size="sm" onClick={() => navigate('/projects')}>
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Projects
+        </Button>
+
+        {/* Project header card */}
+        <ProjectHeader
+          project={{ ...project, lastCallDate }}
           onStatusUpdate={handleStatusUpdate}
           onWeeklyStatusAdd={handleWeeklyStatusAdd}
           onWeeklyStatusUpdate={handleWeeklyStatusUpdate}
-          onLeadUpdate={handleLeadUpdate}
+          onLeadUpdate={() => {}}
           onLastCallDateUpdate={handleLastCallDateUpdate}
         />
-        </div>
 
-        {/* Navigation */}
-        <ProjectNavigation
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          tabs={navigationTabs}
-        />
-
-        {/* Content */}
-        <div className="p-6">
-          {renderContent()}
-        </div>
-
-        {/* Year Record Note */}
-        <div className="p-6 pt-0">
-          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Calendar className="w-4 h-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-800">Year Record</span>
-            </div>
-            <p className="text-sm text-amber-700">
-              This project maintains a complete record for the entire year, updated by the operations team and project managers.
-            </p>
+        {/* Tabs + content */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <ProjectNavigation
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabs={tabs}
+          />
+          <div className="p-6">
+            {renderContent()}
           </div>
         </div>
+
       </div>
     </div>
   );
